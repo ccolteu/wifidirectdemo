@@ -1,4 +1,4 @@
-package com.tagkast.mywifidirectdemo;
+package com.cc.wifidirectdemo;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

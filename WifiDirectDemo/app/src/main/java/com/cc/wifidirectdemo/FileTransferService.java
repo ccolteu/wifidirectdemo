@@ -1,4 +1,4 @@
-package com.tagkast.mywifidirectdemo;
+package com.cc.wifidirectdemo;
 
 import android.app.IntentService;
 import android.content.ContentResolver;
@@ -19,7 +19,7 @@ import java.net.Socket;
 public class FileTransferService extends IntentService {
 
     private static final int SOCKET_TIMEOUT = 5000;
-    public static final String ACTION_SEND_FILE = "com.tagkast.mywifidirectdemo.SEND_FILE";
+    public static final String ACTION_SEND_FILE = "com.cc.wifidirectdemo.SEND_FILE";
     public static final String EXTRAS_FILE_PATH = "file_url";
     public static final String EXTRAS_GROUP_OWNER_ADDRESS = "go_host";
     public static final String EXTRAS_GROUP_OWNER_PORT = "go_port";

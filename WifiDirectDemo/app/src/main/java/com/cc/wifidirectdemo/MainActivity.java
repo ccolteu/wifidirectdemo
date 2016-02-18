@@ -1,4 +1,4 @@
-package com.tagkast.mywifidirectdemo;
+package com.cc.wifidirectdemo;
 
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements WifiP2pManager.ChannelListener {
+
+    public static final int SOCKET_PORT = 8988;
 
     private MainActivity mActivity;
 
@@ -341,7 +343,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
         serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, uri.toString());
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
+        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
         mActivity.startService(serviceIntent);
     }
 
@@ -367,7 +369,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         @Override
         protected String doInBackground(Void... params) {
             try {
-                ServerSocket serverSocket = new ServerSocket(8988);
+                ServerSocket serverSocket = new ServerSocket(MainActivity.SOCKET_PORT);
                 Socket client = serverSocket.accept();
                 InputStream inputstream = client.getInputStream();
                 final File f = new File(Environment.getExternalStorageDirectory() + "/"

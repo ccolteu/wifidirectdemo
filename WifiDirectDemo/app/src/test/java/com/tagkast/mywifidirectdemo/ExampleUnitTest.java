@@ -1,4 +1,4 @@
-package com.tagkast.mywifidirectdemo;
+package com.cc.wifidirectdemo;
 
 import org.junit.Test;
 
