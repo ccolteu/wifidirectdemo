@@ -38,24 +38,26 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements WifiP2pManager.ChannelListener {
+public class MainActivity extends AppCompatActivity {
 
     public static final int SOCKET_PORT = 8988;
 
     private MainActivity mActivity;
 
-    private WifiP2pManager manager;
+    private WifiP2pManager mWifiP2pManager;
+    private WifiP2pManager.ChannelListener mChannelListener;
     private boolean isWifiP2pEnabled = false;
-    private boolean retryChannel = false;
+    private boolean retryChannel = true;
 
-    private WifiP2pManager.Channel channel;
-    private BroadcastReceiver receiver = null;
+    //A channel that connects the application to the Wifi p2p framework
+    private WifiP2pManager.Channel mWifiP2pChannel;
+    private BroadcastReceiver mWifiP2pReceiver = null;
 
 
     private List<WifiP2pDevice> peers = new ArrayList<>();
     ProgressDialog progressDialog = null;
     View detailView = null;
-    private WifiP2pDevice device;
+    private WifiP2pDevice thisDevice, remoteConnectedDevice;
 
     private WifiP2pManager.PeerListListener mPeerListListener;
     private ListView mPeersListView;
@@ -66,26 +68,10 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
 
     private WifiP2pManager.ConnectionInfoListener mConnectionInfoListener;
 
+    private boolean initiatedConnection = false;
 
     public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
         this.isWifiP2pEnabled = isWifiP2pEnabled;
-    }
-
-    //ChannelListener
-    @Override
-    public void onChannelDisconnected() {
-        // we will try once more
-        if (manager != null && !retryChannel) {
-            Toast.makeText(this, "Channel lost. Trying again", Toast.LENGTH_LONG).show();
-            resetPeers();
-            resetDetailsData();
-            retryChannel = true;
-            manager.initialize(this, getMainLooper(), this);
-        } else {
-            Toast.makeText(this,
-                    "Severe! Channel is probably lost premanently. Try Disable/Re-Enable P2P.",
-                    Toast.LENGTH_LONG).show();
-        }
     }
 
     public void resetPeers() {
@@ -112,8 +98,12 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         return mConnectionInfoListener;
     }
 
+    public void setInitiatedConnectionFlag(boolean value) {
+        initiatedConnection = value;
+    }
+
     public void updateThisDevice(WifiP2pDevice device) {
-        this.device = device;
+        this.thisDevice = device;
         TextView view = (TextView) findViewById(R.id.my_name);
         view.setText(device.deviceName);
         view = (TextView) findViewById(R.id.my_status);
@@ -131,8 +121,28 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
         detailView = findViewById(R.id.detail);
         detailView.setVisibility(View.GONE);
 
-        manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-        channel = manager.initialize(this, getMainLooper(), null);
+        mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
+
+        mChannelListener = new WifiP2pManager.ChannelListener() {
+            @Override
+            public void onChannelDisconnected() {
+
+                if (mWifiP2pManager != null && retryChannel) {
+                    Toast.makeText(mActivity, "Channel lost. Trying again", Toast.LENGTH_LONG).show();
+
+                    // we will try once more
+                    resetPeers();
+                    resetDetailsData();
+                    retryChannel = false;
+                    mWifiP2pManager.initialize(mActivity, getMainLooper(), mChannelListener);
+
+                } else {
+                    Toast.makeText(mActivity, "Severe! Channel is probably permanently lost. Try Disable/Re-Enable P2P.", Toast.LENGTH_LONG).show();
+                }
+            }
+        };
+        // Registers the application with the Wi-Fi framework
+        mWifiP2pChannel = mWifiP2pManager.initialize(this, getMainLooper(), mChannelListener);
 
         findViewById(R.id.btn_discover).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -179,21 +189,25 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 peers.addAll(peerList.getDeviceList());
                 mWiFiPeerListAdapter.notifyDataSetChanged();
                 if (peers.size() == 0) {
-                    Log.d("toto", "No devices found");
+                    Log.d("toto", "No peer devices found!");
                     return;
+                } else {
+                    for (WifiP2pDevice d:peerList.getDeviceList()) {
+                        Log.d("toto", "found peer device/state: " + d.deviceName + "/" + getDeviceStatus(d.status));
+                    }
                 }
             }
         };
         mPeersListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                device = mWiFiPeerListAdapter.getItem(position);
+                remoteConnectedDevice = mWiFiPeerListAdapter.getItem(position);
                 detailView.setVisibility(View.VISIBLE);
                 detailView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
                 detailView.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
                 detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
-                ((TextView) detailView.findViewById(R.id.device_address)).setText("Address: " + device.deviceAddress);
-                ((TextView) detailView.findViewById(R.id.device_info)).setText("Name: " + device.deviceName); //device.toString()
+                ((TextView) detailView.findViewById(R.id.device_address)).setText("Address: " + remoteConnectedDevice.deviceAddress);
+                ((TextView) detailView.findViewById(R.id.device_info)).setText("Name: " + remoteConnectedDevice.deviceName); //device.toString()
             }
         });
 
@@ -217,21 +231,44 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                 // After the group negotiation, we assign the group owner as the file
                 // server. The file server is single threaded, single connection server
                 // socket.
-                if (info.groupFormed && info.isGroupOwner) {
+//                if (info.groupFormed && info.isGroupOwner) {
+//
+//                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+//                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+//                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+//
+//                    new FileServerAsyncTask(mActivity, detailView.findViewById(R.id.status_bar)).execute();
+//
+//                } else if (info.groupFormed) {
+//
+//                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+//                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+//                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
+//                    ((TextView) detailView.findViewById(R.id.status_text)).setText("Ready to Send Photo");
+//                }
 
-                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+                if (info.groupFormed) {
+                    if (initiatedConnection) {
 
-                    new FileServerAsyncTask(mActivity, detailView.findViewById(R.id.status_bar)).execute();
+                        /////////////////////////////////////////////////////////////////
+                        // The device which initiated the connection will send the photos
+                        /////////////////////////////////////////////////////////////////
 
-                } else if (info.groupFormed) {
+                        detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                        detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+                        detailView.findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
+                        ((TextView) detailView.findViewById(R.id.status_text)).setText("Ready to Send Photo");
 
-                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
-                    ((TextView) detailView.findViewById(R.id.status_text)).setText("Ready to Send Photo");
+                    } else {
+
+                        detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                        detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+                        detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+
+                        new FileServerAsyncTask(mActivity, detailView.findViewById(R.id.status_bar)).execute();
+                    }
                 }
+
             }
         };
     }
@@ -251,7 +288,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
                     }
                 });
 
-        manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
+        mWifiP2pManager.discoverPeers(mWifiP2pChannel, new WifiP2pManager.ActionListener() {
 
             @Override
             public void onSuccess() {
@@ -266,34 +303,34 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     }
 
     private void connect() {
+        initiatedConnection = true;
         WifiP2pConfig config = new WifiP2pConfig();
-        config.deviceAddress = device.deviceAddress;
+        config.deviceAddress = remoteConnectedDevice.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
         progressDialog = ProgressDialog.show(mActivity, "Press back to cancel",
-                "Connecting to :" + device.deviceAddress, true, true);
+                "Connecting to :" + remoteConnectedDevice.deviceAddress, true, true);
 
-        manager.connect(channel, config, new WifiP2pManager.ActionListener() {
+        mWifiP2pManager.connect(mWifiP2pChannel, config, new WifiP2pManager.ActionListener() {
 
             @Override
             public void onSuccess() {
-                // WiFiDirectBroadcastReceiver will notify us. Ignore for now.
+                // WiFiDirectBroadcastReceiver will notify us, nothing to do here
             }
 
             @Override
             public void onFailure(int reason) {
-                Toast.makeText(mActivity, "Connect failed. Retry.",
-                        Toast.LENGTH_SHORT).show();
+                initiatedConnection = false;
+                Toast.makeText(mActivity, "Connect failed. Please retry.", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void disconnect() {
-        resetDetailsData();
 
-        manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
+        mWifiP2pManager.removeGroup(mWifiP2pChannel, new WifiP2pManager.ActionListener() {
 
             @Override
             public void onFailure(int reasonCode) {
@@ -302,6 +339,8 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
 
             @Override
             public void onSuccess() {
+                initiatedConnection = false;
+                resetDetailsData();
                 detailView.setVisibility(View.GONE);
             }
         });
@@ -310,20 +349,21 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     @Override
     public void onResume() {
         super.onResume();
-        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
+        mWifiP2pReceiver = new WiFiDirectBroadcastReceiver(mWifiP2pManager, mWifiP2pChannel, this);
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-        registerReceiver(receiver, intentFilter);
+        // as soon as we register we will start receiving events
+        registerReceiver(mWifiP2pReceiver, intentFilter);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (receiver != null) {
-            unregisterReceiver(receiver);
+        if (mWifiP2pReceiver != null) {
+            unregisterReceiver(mWifiP2pReceiver);
         }
     }
 
@@ -457,8 +497,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Ch
     /*
     Utils
      */
-    private static String getDeviceStatus(int deviceStatus) {
-        Log.d("toto", "Peer status :" + deviceStatus);
+    public static String getDeviceStatus(int deviceStatus) {
         switch (deviceStatus) {
             case WifiP2pDevice.AVAILABLE:
                 return "Available";
