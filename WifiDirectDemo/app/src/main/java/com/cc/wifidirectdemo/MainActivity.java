@@ -55,8 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private List<WifiP2pDevice> peers = new ArrayList<>();
-    ProgressDialog progressDialog = null;
-    View detailView = null;
+    private ProgressDialog progressDialog = null;
     private WifiP2pDevice thisDevice, remoteConnectedDevice;
 
     private WifiP2pManager.PeerListListener mPeerListListener;
@@ -80,14 +79,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void resetDetailsData() {
-        ((TextView) detailView.findViewById(R.id.device_name)).setText("");
-        ((TextView) detailView.findViewById(R.id.device_address)).setText("");
-        ((TextView) detailView.findViewById(R.id.group_data)).setText("");
-        ((TextView) detailView.findViewById(R.id.status_text)).setText("");
-        detailView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
-        detailView.findViewById(R.id.open_received_photo).setVisibility(View.GONE);
-        detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
-        detailView.setVisibility(View.GONE);
+        ((TextView) findViewById(R.id.status_text)).setText("");
+        findViewById(R.id.open_received_photo).setVisibility(View.GONE);
+        findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
     }
 
     public WifiP2pManager.PeerListListener getPeerListListener() {
@@ -127,9 +121,6 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        detailView = findViewById(R.id.detail);
-        detailView.setVisibility(View.GONE);
-
         mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
 
         mChannelListener = new WifiP2pManager.ChannelListener() {
@@ -157,20 +148,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 discover();
-            }
-        });
-
-        findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                connect();
-            }
-        });
-
-        findViewById(R.id.btn_disconnect).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                disconnect();
             }
         });
 
@@ -207,20 +184,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
-        mPeersListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                remoteConnectedDevice = mWiFiPeerListAdapter.getItem(position);
-                detailView.setVisibility(View.VISIBLE);
-                detailView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
-                detailView.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
-                detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
-                ((TextView) detailView.findViewById(R.id.device_name)).setText("" + remoteConnectedDevice.deviceName);
-                ((TextView) detailView.findViewById(R.id.device_address)).setText("" + remoteConnectedDevice.deviceAddress);
-
-            }
-        });
-
 
         mConnectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
             @Override
@@ -232,32 +195,6 @@ public class MainActivity extends AppCompatActivity {
 
                 mActivity.info = info;
 
-                detailView.setVisibility(View.VISIBLE);
-
-                // update UI
-                ((TextView) detailView.findViewById(R.id.device_name)).setText("" + remoteConnectedDevice.deviceName);
-                ((TextView) detailView.findViewById(R.id.device_address)).setText("" + remoteConnectedDevice.deviceAddress);
-                ((TextView) detailView.findViewById(R.id.group_data)).setText(((info.isGroupOwner == true) ? "Group owner." : "Not group owner.") + " Group owner IP: " + info.groupOwnerAddress.getHostAddress());
-
-                // After the group negotiation, we assign the group owner as the file
-                // server. The file server is single threaded, single connection server
-                // socket.
-//                if (info.groupFormed && info.isGroupOwner) {
-//
-//                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-//                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-//                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
-//
-//                    new FileServerAsyncTask(mActivity, detailView.findViewById(R.id.status_bar)).execute();
-//
-//                } else if (info.groupFormed) {
-//
-//                    detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-//                    detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-//                    detailView.findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
-//                    ((TextView) detailView.findViewById(R.id.status_text)).setText("Ready to Send Photo");
-//                }
-
                 if (info.groupFormed) {
                     if (initiatedConnection) {
 
@@ -265,18 +202,14 @@ public class MainActivity extends AppCompatActivity {
                         // The device which initiated the connection will send the photos
                         /////////////////////////////////////////////////////////////////
 
-                        detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-                        detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-                        detailView.findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
-                        ((TextView) detailView.findViewById(R.id.status_text)).setText("Ready to Send Photo");
+                        findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
+                        ((TextView) findViewById(R.id.status_text)).setText("Ready to Send Photo");
 
                     } else {
 
-                        detailView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
-                        detailView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
-                        detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+                        findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
 
-                        new FileServerAsyncTask(mActivity, detailView.findViewById(R.id.status_bar)).execute();
+                        new FileServerAsyncTask(mActivity, findViewById(R.id.status_bar)).execute();
                     }
                 }
 
@@ -285,7 +218,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void discover() {
-        detailView.setVisibility(View.GONE);
 
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
@@ -352,7 +284,6 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 initiatedConnection = false;
                 resetDetailsData();
-                detailView.setVisibility(View.GONE);
             }
         });
     }
@@ -387,7 +318,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Sends image to the Group Owner using the FileTransferService
     private void sendData(Uri uri) {
-        TextView statusText = (TextView) detailView.findViewById(R.id.status_text);
+        TextView statusText = (TextView) findViewById(R.id.status_text);
         statusText.setText("Sending: " + uri);
         Log.d("toto", "=== Sending: " + uri);
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
@@ -474,12 +405,12 @@ public class MainActivity extends AppCompatActivity {
      */
     private class WiFiPeerListAdapter extends ArrayAdapter<WifiP2pDevice> {
 
-        private List<WifiP2pDevice> items;
+        private List<WifiP2pDevice> devices;
         private LayoutInflater inflater;
 
         public WiFiPeerListAdapter(Context context, int textViewResourceId, List<WifiP2pDevice> objects) {
             super(context, textViewResourceId, objects);
-            items = objects;
+            devices = objects;
             inflater = (LayoutInflater) mActivity.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         }
 
@@ -489,7 +420,7 @@ public class MainActivity extends AppCompatActivity {
             if (v == null) {
                 v = inflater.inflate(R.layout.row_devices, null);
             }
-            WifiP2pDevice device = items.get(position);
+            final WifiP2pDevice device = devices.get(position);
             if (device != null) {
                 TextView top = (TextView) v.findViewById(R.id.device_name);
                 TextView bottom = (TextView) v.findViewById(R.id.device_details);
@@ -505,9 +436,43 @@ public class MainActivity extends AppCompatActivity {
                         bottom.setTextColor(getResources().getColor(android.R.color.black));
                     }
                 }
+                if (connected(devices)) {
+                    if (device.status == WifiP2pDevice.CONNECTED) {
+                        v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                        v.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+                        v.findViewById(R.id.btn_disconnect).setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                disconnect();
+                            }
+                        });
+                    } else {
+                        v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                        v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
+                    }
+                } else {
+                    v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
+                    v.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
+                    v.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            remoteConnectedDevice = device;
+                            connect();
+                        }
+                    });
+                }
             }
             return v;
         }
+    }
+
+    private boolean connected(List<WifiP2pDevice> devices) {
+        for (WifiP2pDevice device:devices) {
+            if (device.status == WifiP2pDevice.CONNECTED) {
+                return true;
+            }
+        }
+        return false;
     }
 
 

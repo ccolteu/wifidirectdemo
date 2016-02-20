@@ -9,4 +9,6 @@
 
 Note that the device that initiates the connection will be the sender, the device that accepts the connection will be the receiver.
 
-![Alt text](/connected.png?raw=true "Connected and ready to send. Notice the Wifi Direct icon in the status bar.")
+![Alt text](/sender.png?raw=true "initiates connection to send")
+
+![Alt text](/receiver.png?raw=true "accepts connection to receive")
