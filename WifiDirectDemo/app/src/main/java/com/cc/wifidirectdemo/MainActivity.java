@@ -80,9 +80,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void resetDetailsData() {
+        ((TextView) detailView.findViewById(R.id.device_name)).setText("");
         ((TextView) detailView.findViewById(R.id.device_address)).setText("");
-        ((TextView) detailView.findViewById(R.id.device_info)).setText("");
-        ((TextView) detailView.findViewById(R.id.group_owner)).setText("");
+        ((TextView) detailView.findViewById(R.id.group_data)).setText("");
         ((TextView) detailView.findViewById(R.id.status_text)).setText("");
         detailView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
         detailView.findViewById(R.id.open_received_photo).setVisibility(View.GONE);
@@ -108,6 +108,15 @@ public class MainActivity extends AppCompatActivity {
         view.setText(device.deviceName);
         view = (TextView) findViewById(R.id.my_status);
         view.setText(getDeviceStatus(device.status));
+        if (device.status == WifiP2pDevice.CONNECTED) {
+            view.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        } else {
+            view.setTextColor(getResources().getColor(android.R.color.black));
+        }
+    }
+
+    private void updateRemoteDevice(WifiP2pDevice device) {
+        this.remoteConnectedDevice = device;
     }
 
     @Override
@@ -206,8 +215,9 @@ public class MainActivity extends AppCompatActivity {
                 detailView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
                 detailView.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
                 detailView.findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
-                ((TextView) detailView.findViewById(R.id.device_address)).setText("Address: " + remoteConnectedDevice.deviceAddress);
-                ((TextView) detailView.findViewById(R.id.device_info)).setText("Name: " + remoteConnectedDevice.deviceName); //device.toString()
+                ((TextView) detailView.findViewById(R.id.device_name)).setText("" + remoteConnectedDevice.deviceName);
+                ((TextView) detailView.findViewById(R.id.device_address)).setText("" + remoteConnectedDevice.deviceAddress);
+
             }
         });
 
@@ -225,8 +235,9 @@ public class MainActivity extends AppCompatActivity {
                 detailView.setVisibility(View.VISIBLE);
 
                 // update UI
-                ((TextView) detailView.findViewById(R.id.group_owner)).setText("Am I the Group Owner? " + ((info.isGroupOwner == true) ? "Yes" : "No"));
-                ((TextView) detailView.findViewById(R.id.device_info)).setText("Group Owner IP: " + info.groupOwnerAddress.getHostAddress());
+                ((TextView) detailView.findViewById(R.id.device_name)).setText("" + remoteConnectedDevice.deviceName);
+                ((TextView) detailView.findViewById(R.id.device_address)).setText("" + remoteConnectedDevice.deviceAddress);
+                ((TextView) detailView.findViewById(R.id.group_data)).setText(((info.isGroupOwner == true) ? "Group owner." : "Not group owner.") + " Group owner IP: " + info.groupOwnerAddress.getHostAddress());
 
                 // After the group negotiation, we assign the group owner as the file
                 // server. The file server is single threaded, single connection server
@@ -487,6 +498,12 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (bottom != null) {
                     bottom.setText(getDeviceStatus(device.status));
+                    if (device.status == WifiP2pDevice.CONNECTED) {
+                        bottom.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                        updateRemoteDevice(device);
+                    } else {
+                        bottom.setTextColor(getResources().getColor(android.R.color.black));
+                    }
                 }
             }
             return v;
