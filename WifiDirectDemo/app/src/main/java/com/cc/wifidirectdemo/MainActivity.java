@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -24,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -379,8 +381,10 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(final String absolutePath) {
             if (!TextUtils.isEmpty(absolutePath)) {
-                statusBar.findViewById(R.id.open_received_photo).setVisibility(View.VISIBLE);
-                ((TextView) statusBar.findViewById(R.id.status_text)).setText("Received file: " + absolutePath);
+                ImageView imageView = (ImageView) statusBar.findViewById(R.id.open_received_photo);
+                imageView.setImageBitmap(BitmapFactory.decodeFile(absolutePath));
+                imageView.setVisibility(View.VISIBLE);
+                ((TextView) statusBar.findViewById(R.id.status_text)).setText("Received file:\n" + absolutePath);
                 statusBar.findViewById(R.id.open_received_photo).setVisibility(View.VISIBLE);
                 statusBar.findViewById(R.id.open_received_photo).setOnClickListener(new View.OnClickListener() {
                     @Override

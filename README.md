@@ -7,8 +7,12 @@
 5. on R press OPEN to view received photo
 6. press DISCONNECT on any device
 
-Note that the device that initiates the connection will be the sender, the device that accepts the connection will be the receiver.
+The device that initiates the connection will be the sender, while the device that accepts the connection will be the receiver.
+
+Sender (initiates the commection):
 
 ![Alt text](/sender.png?raw=true "initiates connection to send")
+
+Receiver (accepts the connection):
 
 ![Alt text](/receiver.png?raw=true "accepts connection to receive")

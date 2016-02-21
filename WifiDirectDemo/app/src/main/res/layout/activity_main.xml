@@ -108,21 +108,22 @@
         android:layout_alignParentBottom="true"
         android:background="#6262c1">
 
-        <Button
+        <ImageView
             android:id="@+id/open_received_photo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Open"
-            android:visibility="visible"
-            android:layout_centerVertical="true"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_margin="10dp"
             android:layout_alignParentRight="true"
-            android:layout_marginRight="10dp"/>
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/status_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="10dp"
+            android:layout_toLeftOf="@id/open_received_photo"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:layout_marginLeft="10dp"
             android:textColor="@android:color/white" />
 
     </RelativeLayout>
