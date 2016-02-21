@@ -1,13 +1,13 @@
 # wifidirectdemo
 
-1. press DISCOVER on both Sending (S) and Receiving (R) devices
-2. on S select R from the list then (still on S) press CONNECT
-3. on R accept connection
-4. on S press SEND PHOTO, pick photo using your favorite photo app
-5. on R press OPEN to view received photo
-6. press DISCONNECT on any device
-
 The device that initiates the connection will be the sender, while the device that accepts the connection will be the receiver.
+
+1. press DISCOVER on both devices
+2. on one device - the sender - press CONNECT in a row of remote devices - which will become the receiver 
+3. on receiver device accept connection
+4. on sender device press SEND PHOTO, pick photo using your favorite photo app
+5. the receiver device will receive the photo
+6. press DISCONNECT on any device
 
 Sender (initiates the connection):
 
