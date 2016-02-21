@@ -3,9 +3,11 @@ package com.cc.wifidirectdemo;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.CursorLoader;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -16,6 +18,7 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -23,7 +26,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -315,17 +317,30 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         // User has picked an image, send it
-        sendData(data.getData());
+        Uri uri = data.getData();
+        //sendData(uri);
+        sendData(getPathFromUri(uri));
     }
 
-    // Sends image to the Group Owner using the FileTransferService
+    // Sends image using the FileTransferService
     private void sendData(Uri uri) {
-        TextView statusText = (TextView) findViewById(R.id.status_text);
-        statusText.setText("Sending: " + uri);
-        Log.d("toto", "=== Sending: " + uri);
+        ((TextView) findViewById(R.id.status_text)).setText("Sending...");
+        Log.d("toto", "Sending uri: " + uri);
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
         serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, uri.toString());
+        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_URI, uri.toString());
+        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
+        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
+        mActivity.startService(serviceIntent);
+    }
+
+    // Sends image using the FileTransferService
+    private void sendData(String  path) {
+        ((TextView) findViewById(R.id.status_text)).setText("Sending...");
+        Log.d("toto", "Sending path: " + path);
+        Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
+        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
+        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, path);
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
         mActivity.startService(serviceIntent);
@@ -515,6 +530,17 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
         return true;
+    }
+
+    private String getPathFromUri(Uri contentUri) {
+        String[] proj = { MediaStore.Images.Media.DATA };
+        CursorLoader loader = new CursorLoader(mActivity, contentUri, proj, null, null, null);
+        Cursor cursor = loader.loadInBackground();
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        String result = cursor.getString(column_index);
+        cursor.close();
+        return result;
     }
 
 }
