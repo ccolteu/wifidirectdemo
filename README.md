@@ -9,7 +9,7 @@
 
 The device that initiates the connection will be the sender, while the device that accepts the connection will be the receiver.
 
-Sender (initiates the commection):
+Sender (initiates the connection):
 
 ![Alt text](/sender.png?raw=true "initiates connection to send")
 
