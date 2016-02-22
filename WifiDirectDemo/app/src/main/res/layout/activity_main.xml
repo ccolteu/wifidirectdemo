@@ -108,22 +108,39 @@
         android:layout_alignParentBottom="true"
         android:background="#6262c1">
 
-        <ImageView
-            android:id="@+id/open_received_photo"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_margin="10dp"
-            android:layout_alignParentRight="true"
-            android:visibility="gone" />
+        <RelativeLayout
+            android:id="@+id/status_right_pane"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true" >
+
+            <ImageView
+                android:id="@+id/open_received_photo"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_margin="10dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btn_send_photos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:layout_centerVertical="true"
+                android:text="Send Photos"
+                android:visibility="gone" />
+
+        </RelativeLayout>
 
         <TextView
             android:id="@+id/status_text"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_toLeftOf="@id/open_received_photo"
+            android:layout_toLeftOf="@id/status_right_pane"
             android:layout_marginTop="10dp"
             android:layout_marginBottom="10dp"
             android:layout_marginLeft="10dp"
+            android:layout_centerVertical="true"
             android:textColor="@android:color/white" />
 
     </RelativeLayout>

@@ -72,6 +72,13 @@ public class MainActivity extends AppCompatActivity {
     private WifiP2pManager.ConnectionInfoListener mConnectionInfoListener;
 
     private boolean initiatedConnection = false;
+    private boolean isConnected = false;
+
+    private AsyncTask mFileServerAsyncTask;
+    private Thread socketServerThread;
+    private ServerSocket serverSocket;
+    private String serverIp;
+    private View mStatusBar;
 
     public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
         this.isWifiP2pEnabled = isWifiP2pEnabled;
@@ -86,6 +93,20 @@ public class MainActivity extends AppCompatActivity {
         ((TextView) findViewById(R.id.status_text)).setText("");
         findViewById(R.id.open_received_photo).setVisibility(View.GONE);
         findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+        findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
+        if (mFileServerAsyncTask!= null && mFileServerAsyncTask.getStatus() == AsyncTask.Status.RUNNING) {
+            Log.e("toto", "Receiver: cancel AsyncTask waiting for Sender to open a connection");
+            mFileServerAsyncTask.cancel(true);
+        }
+        try {
+            if (serverSocket != null) {
+                // this will unblock socketServerThread: accept() will
+                // throw a SocketException and terminate the thread
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+
+        }
     }
 
     public WifiP2pManager.PeerListListener getPeerListListener() {
@@ -98,6 +119,14 @@ public class MainActivity extends AppCompatActivity {
 
     public void setInitiatedConnectionFlag(boolean value) {
         initiatedConnection = value;
+    }
+
+    public void setIsConnected(boolean value) {
+        isConnected = value;
+    }
+
+    public boolean isConnected() {
+        return isConnected;
     }
 
     public void updateThisDevice(WifiP2pDevice device) {
@@ -124,6 +153,8 @@ public class MainActivity extends AppCompatActivity {
         mActivity = this;
 
         setContentView(R.layout.activity_main);
+
+        mStatusBar = findViewById(R.id.status_bar);
 
         mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
 
@@ -166,6 +197,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        findViewById(R.id.btn_send_photos).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendPhotos(getPhotosPaths());
+            }
+        });
+
         mPeersListView = (ListView) findViewById(R.id.peers_list);
         mWiFiPeerListAdapter = new WiFiPeerListAdapter(mActivity, R.layout.row_devices, peers);
         mPeersListView.setAdapter(mWiFiPeerListAdapter);
@@ -200,23 +238,40 @@ public class MainActivity extends AppCompatActivity {
                 mActivity.info = info;
 
                 if (info.groupFormed) {
+
+                    // The Group Owner should be acting as the server Receiving the photos,
+                    // while the other device shall act as the client Sending the photos.
+                    // This condition should really be "if (!info.isGroupOwner)"
+                    // but we made sure that the device that initiates the connection
+                    // (initiatedConnection is true) will not be the group owner by
+                    // setting config.groupOwnerIntent = 0 when initiating the connection
                     if (initiatedConnection) {
 
-                        /////////////////////////////////////////////////////////////////
-                        // The device which initiated the connection will send the photos
-                        /////////////////////////////////////////////////////////////////
+                        // client / Sender
+
+                        Log.e("toto", "I am the Sender, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
+                        Log.e("toto", "Group owner IP: " + info.groupOwnerAddress.getHostAddress());
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
+                        findViewById(R.id.btn_send_photos).setVisibility(View.VISIBLE);
                         ((TextView) findViewById(R.id.status_text)).setText("Ready to Send Photo");
 
                     } else {
 
-                        findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+                        // server / Receiver
 
-                        new FileServerAsyncTask(mActivity, findViewById(R.id.status_bar)).execute();
+                        Log.e("toto", "I am the Receiver, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
+                        Log.e("toto", "Group owner IP: " + info.groupOwnerAddress);
+
+                        findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
+                        findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
+
+                        Log.e("toto", "Receiver: create a server thread waiting for Sender to open a connection");
+                        serverIp = info.groupOwnerAddress.getHostAddress();
+                        socketServerThread = new Thread(new SocketServerThread());
+                        socketServerThread.start();
                     }
                 }
-
             }
         };
     }
@@ -254,6 +309,15 @@ public class MainActivity extends AppCompatActivity {
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = remoteConnectedDevice.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
+
+
+        // This is an integer value between 0 and 15 where 0 indicates the least
+        // inclination to be a group owner and 15 indicates the highest inclination
+        // to be a group owner. A value of -1 indicates the system can choose an appropriate value.
+        // We want the device that initiates the connection to be the Sender, so we need
+        // it NOT to be the group owner (the group owner always acts as the server / Receiver)
+        config.groupOwnerIntent = 0;
+
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
@@ -290,6 +354,15 @@ public class MainActivity extends AppCompatActivity {
                 resetDetailsData();
             }
         });
+
+        if (serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
@@ -315,15 +388,13 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
         // User has picked an image, send it
         Uri uri = data.getData();
-        //sendData(uri);
-        sendData(getPathFromUri(uri));
+        //sendPhoto(uri);
+        sendPhoto(getPathFromUri(uri));
     }
 
-    // Sends image using the FileTransferService
-    private void sendData(Uri uri) {
+    private void sendPhoto(Uri uri) {
         ((TextView) findViewById(R.id.status_text)).setText("Sending...");
         Log.d("toto", "Sending uri: " + uri);
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
@@ -334,8 +405,7 @@ public class MainActivity extends AppCompatActivity {
         mActivity.startService(serviceIntent);
     }
 
-    // Sends image using the FileTransferService
-    private void sendData(String  path) {
+    private void sendPhoto(String  path) {
         ((TextView) findViewById(R.id.status_text)).setText("Sending...");
         Log.d("toto", "Sending path: " + path);
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
@@ -346,67 +416,96 @@ public class MainActivity extends AppCompatActivity {
         mActivity.startService(serviceIntent);
     }
 
+    private void sendPhotos(ArrayList<String> pathsArray) {
 
-    /*
-    Open a socket connection and wait for the data to be sent
-     */
-    public static class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
-        private Context context;
-        private View statusBar;
+//        for (String path:pathsArray) {
+//            sendPhoto(path);
+//        }
 
-        public FileServerAsyncTask(Context context, View statusBar) {
-            this.context = context;
-            this.statusBar = statusBar;
-        }
+        ((TextView) findViewById(R.id.status_text)).setText("Sending...");
+        Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
+        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
+        serviceIntent.putStringArrayListExtra(FileTransferService.EXTRAS_FILE_PATHS, pathsArray);
+        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
+        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
+        mActivity.startService(serviceIntent);
+    }
+
+    private ArrayList<String> getPhotosPaths() {
+        ArrayList<String> pathsArray = new ArrayList<>();
+        pathsArray.add(Environment.getExternalStorageDirectory() + "/send/01.jpg");
+        pathsArray.add(Environment.getExternalStorageDirectory() + "/send/02.jpg");
+        return pathsArray;
+    }
+
+
+    // This is a blocking thread (serverSocket.accept()) that runs forever (while (true)).
+    // To stop it you just close the serverSocket which will have accept() throw a SocketException
+    // thus unblocking the thread and terminating it.
+    private class SocketServerThread extends Thread {
+
+        int count = 0;
 
         @Override
-        protected void onPreExecute() {
-            ((TextView) statusBar.findViewById(R.id.status_text)).setText("Ready to Receive Photo");
-            statusBar.findViewById(R.id.open_received_photo).setVisibility(View.GONE);
-        }
-
-        @Override
-        protected String doInBackground(Void... params) {
+        public void run() {
             try {
-                ServerSocket serverSocket = new ServerSocket(MainActivity.SOCKET_PORT);
-                Socket client = serverSocket.accept();
-                InputStream inputstream = client.getInputStream();
-                final File f = new File(Environment.getExternalStorageDirectory() + "/"
-                        + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
-                        + ".jpg");
-                File dirs = new File(f.getParent());
-                if (!dirs.exists()) {
-                    dirs.mkdirs();
-                }
-                f.createNewFile();
-                copyFile(inputstream, new FileOutputStream(f));
 
-                Log.e("toto", "Photo received: " + f.getAbsolutePath());
+                MainActivity.this.runOnUiThread(new Runnable() {
 
-                serverSocket.close();
-                return f.getAbsolutePath();
-            } catch (IOException e) {
-                Log.e("toto", e.getMessage());
-                return null;
-            }
-        }
-
-        // this will trigger when the data is sent over the
-        // socket connection from the FileTransferService
-        @Override
-        protected void onPostExecute(final String absolutePath) {
-            if (!TextUtils.isEmpty(absolutePath)) {
-                ImageView imageView = (ImageView) statusBar.findViewById(R.id.open_received_photo);
-                imageView.setImageBitmap(BitmapFactory.decodeFile(absolutePath));
-                imageView.setVisibility(View.VISIBLE);
-                ((TextView) statusBar.findViewById(R.id.status_text)).setText("Received file:\n" + absolutePath);
-                statusBar.findViewById(R.id.open_received_photo).setVisibility(View.VISIBLE);
-                statusBar.findViewById(R.id.open_received_photo).setOnClickListener(new View.OnClickListener() {
                     @Override
-                    public void onClick(View v) {
-                        viewImageFile(context, absolutePath);
+                    public void run() {
+                        ((TextView) mStatusBar.findViewById(R.id.status_text)).setText("Ready to Receive Photo");
+                        mStatusBar.findViewById(R.id.open_received_photo).setVisibility(View.GONE);
                     }
                 });
+
+                serverSocket = new ServerSocket(MainActivity.SOCKET_PORT);
+
+                while (true) {
+
+                    Log.e("toto", "Receiver: blocked, waiting for Sender to open connection on port " + serverSocket.getLocalPort());
+                    // Waits for an incoming request and blocks until the connection is opened.
+                    // This method returns a socket object representing the just opened connection.
+                    Socket clientSocket = serverSocket.accept();
+                    Log.e("toto", "Receiver: unblocked, accepted Sender connection on " + clientSocket.getLocalAddress() + ":" + clientSocket.getLocalPort());
+                    count++;
+
+                    InputStream inputstream = clientSocket.getInputStream();
+                    final File f = new File(Environment.getExternalStorageDirectory() + "/"
+                            + mActivity.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
+                            + ".jpg");
+                    File dirs = new File(f.getParent());
+                    if (!dirs.exists()) {
+                        dirs.mkdirs();
+                    }
+                    f.createNewFile();
+                    copyFile(inputstream, new FileOutputStream(f));
+                    Log.e("toto", "Photo received: " + f.getAbsolutePath());
+                    clientSocket.close();
+                    final String absolutePath = f.getAbsolutePath();
+                    MainActivity.this.runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            if (!TextUtils.isEmpty(absolutePath)) {
+                                ImageView imageView = (ImageView) mStatusBar.findViewById(R.id.open_received_photo);
+                                imageView.setImageBitmap(BitmapFactory.decodeFile(absolutePath));
+                                imageView.setVisibility(View.VISIBLE);
+                                ((TextView) mStatusBar.findViewById(R.id.status_text)).setText("Received file:\n" + absolutePath);
+                                mStatusBar.findViewById(R.id.open_received_photo).setVisibility(View.VISIBLE);
+                                mStatusBar.findViewById(R.id.open_received_photo).setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        viewImageFile(mActivity, absolutePath);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
         }
     }

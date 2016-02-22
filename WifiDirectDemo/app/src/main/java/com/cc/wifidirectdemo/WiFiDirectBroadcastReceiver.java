@@ -69,6 +69,12 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                 if (networkInfo.isConnected()) {
 
+                    if (mMainActivity.isConnected()) {
+                        return;
+                    }
+
+                    mMainActivity.setIsConnected(true);
+
                     Log.d("toto", "---> received CONNECTION_CHANGED, connected, call requestConnectionInfo");
 
                     // connected with the other device, request
@@ -76,6 +82,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                     mWifiP2pManager.requestConnectionInfo(mWifiP2pChannel, mMainActivity.getConnectionInfoListener());
 
                 } else {
+
+                    mMainActivity.setIsConnected(false);
 
                     Log.d("toto", "---> received CONNECTION_CHANGED, disconnected, reset peers");
 
