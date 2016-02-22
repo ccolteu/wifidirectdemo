@@ -390,19 +390,7 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User has picked an image, send it
         Uri uri = data.getData();
-        //sendPhoto(uri);
         sendPhoto(getPathFromUri(uri));
-    }
-
-    private void sendPhoto(Uri uri) {
-        ((TextView) findViewById(R.id.status_text)).setText("Sending...");
-        Log.d("toto", "Sending uri: " + uri);
-        Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
-        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_URI, uri.toString());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
-        mActivity.startService(serviceIntent);
     }
 
     private void sendPhoto(String  path) {
@@ -422,6 +410,7 @@ public class MainActivity extends AppCompatActivity {
 //            sendPhoto(path);
 //        }
 
+        // alternate way that only creates on thread (service intent called only once)
         ((TextView) findViewById(R.id.status_text)).setText("Sending...");
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
         serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
@@ -471,18 +460,37 @@ public class MainActivity extends AppCompatActivity {
                     count++;
 
                     InputStream inputstream = clientSocket.getInputStream();
-                    final File f = new File(Environment.getExternalStorageDirectory() + "/"
+                    final File file = new File(Environment.getExternalStorageDirectory() + "/"
                             + mActivity.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
                             + ".jpg");
-                    File dirs = new File(f.getParent());
+                    File dirs = new File(file.getParent());
                     if (!dirs.exists()) {
                         dirs.mkdirs();
                     }
-                    f.createNewFile();
-                    copyFile(inputstream, new FileOutputStream(f));
-                    Log.e("toto", "Photo received: " + f.getAbsolutePath());
+                    file.createNewFile();
+
+                    // the name of the file received is sent along with
+                    // the photo itself and extracted from the byte stream
+                    String fileName = copyFile(inputstream, new FileOutputStream(file));
+
+                    String receivedFilePath = file.getAbsolutePath();
+                    if (!TextUtils.isEmpty(fileName)) {
+                        Log.e("toto", "Receiver: received filename: " + fileName);
+                        // rename with the name sent by the client
+                        final File renamedFile = new File(Environment.getExternalStorageDirectory() + "/"
+                                + mActivity.getPackageName() + "/" + fileName);
+                        if (file.exists()) {
+                            file.renameTo(renamedFile);
+                            Log.e("toto", "Photo received: " + renamedFile.getAbsolutePath());
+                            receivedFilePath = renamedFile.getAbsolutePath();
+                        }
+                    } else {
+                        Log.e("toto", "Photo received: " + file.getAbsolutePath());
+                    }
+
                     clientSocket.close();
-                    final String absolutePath = f.getAbsolutePath();
+
+                    final String absolutePath = receivedFilePath;
                     MainActivity.this.runOnUiThread(new Runnable() {
 
                         @Override
@@ -611,24 +619,36 @@ public class MainActivity extends AppCompatActivity {
                 return "Unavailable";
             default:
                 return "Unknown";
-
         }
     }
 
-    public static boolean copyFile(InputStream inputStream, OutputStream out) {
+    private String copyFile(InputStream inputStream, OutputStream outputStream) {
         byte buf[] = new byte[1024];
+        byte data[] = new byte[1024];
+        String fileName = null;
         int len;
         try {
-            while ((len = inputStream.read(buf)) != -1) {
-                out.write(buf, 0, len);
+
+            // get data
+            len = inputStream.read(data, 0, 1024);
+            if (len != -1) {
+                String dataString = new String(data);
+                fileName = dataString.substring(0, dataString.indexOf("|"));
             }
-            out.close();
+
+            // get photo
+            // inputStream.read(buf) reads up to buf.length (1024
+            // bytes) at a time, returns the number of bytes read
+            while ((len = inputStream.read(buf)) != -1) {
+                outputStream.write(buf, 0, len);
+            }
+            outputStream.close();
             inputStream.close();
         } catch (IOException e) {
             Log.d("toto", e.toString());
-            return false;
+            return null;
         }
-        return true;
+        return fileName;
     }
 
     private String getPathFromUri(Uri contentUri) {
