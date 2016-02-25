@@ -1,17 +1,13 @@
 package com.cc.wifidirectdemo;
 
 import android.app.IntentService;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 
-
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -43,7 +39,6 @@ public class FileTransferService extends IntentService {
         Context context = getApplicationContext();
         if (intent.getAction().equals(ACTION_SEND_FILE)) {
             Bundle extras = intent.getExtras();
-            String fileUri = null;
             String filePath = null;
             ArrayList<String> filePaths = null;
             if (extras.containsKey(EXTRAS_FILE_PATH)) {
@@ -74,10 +69,7 @@ public class FileTransferService extends IntentService {
             socket.bind(null);
 
             Log.e("toto", "Sender: connect on " + host + ":" + port);
-
-            // TODO failed to connect to /192.168.49.1 (port 8988) after 5000ms: isConnected failed: ECONNREFUSED (Connection refused)
             socket.connect((new InetSocketAddress(host, port)), SOCKET_TIMEOUT);
-
             OutputStream outputStream = socket.getOutputStream();
 
             InputStream inputStream = new FileInputStream(filePath);

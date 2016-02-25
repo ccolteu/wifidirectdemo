@@ -16,11 +16,10 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -53,10 +52,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean isWifiP2pEnabled = false;
     private boolean retryChannel = true;
 
-    //A channel that connects the application to the Wifi p2p framework
     private WifiP2pManager.Channel mWifiP2pChannel;
     private BroadcastReceiver mWifiP2pReceiver = null;
-
 
     private List<WifiP2pDevice> peers = new ArrayList<>();
     private ProgressDialog progressDialog = null;
@@ -74,10 +71,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean initiatedConnection = false;
     private boolean isConnected = false;
 
-    private AsyncTask mFileServerAsyncTask;
     private Thread socketServerThread;
     private ServerSocket serverSocket;
-    private String serverIp;
     private View mStatusBar;
 
     public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
@@ -94,10 +89,6 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.open_received_photo).setVisibility(View.GONE);
         findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
         findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
-        if (mFileServerAsyncTask!= null && mFileServerAsyncTask.getStatus() == AsyncTask.Status.RUNNING) {
-            Log.e("toto", "Receiver: cancel AsyncTask waiting for Sender to open a connection");
-            mFileServerAsyncTask.cancel(true);
-        }
         try {
             if (serverSocket != null) {
                 // this will unblock socketServerThread: accept() will
@@ -253,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.e("toto", "Group owner IP: " + info.groupOwnerAddress.getHostAddress());
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
-                        findViewById(R.id.btn_send_photos).setVisibility(View.VISIBLE);
+                        //findViewById(R.id.btn_send_photos).setVisibility(View.VISIBLE);
                         ((TextView) findViewById(R.id.status_text)).setText("Ready to Send Photo");
 
                     } else {
@@ -267,7 +258,6 @@ public class MainActivity extends AppCompatActivity {
                         findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
 
                         Log.e("toto", "Receiver: create a server thread waiting for Sender to open a connection");
-                        serverIp = info.groupOwnerAddress.getHostAddress();
                         socketServerThread = new Thread(new SocketServerThread());
                         socketServerThread.start();
                     }
@@ -390,7 +380,8 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User has picked an image, send it
         Uri uri = data.getData();
-        sendPhoto(getPathFromUri(uri));
+        //sendPhoto(getPathFromUri(uri));
+        sendPhoto(Utils.getPath(this.getBaseContext(), uri));
     }
 
     private void sendPhoto(String  path) {
