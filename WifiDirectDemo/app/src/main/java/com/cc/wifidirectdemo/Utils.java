@@ -4,10 +4,15 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.Log;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class Utils {
     /**
@@ -151,4 +156,46 @@ public class Utils {
     public static boolean isGooglePhotosUri(Uri uri) {
         return "com.google.android.apps.photos.content".equals(uri.getAuthority());
     }
+
+    /*
+    Changing Wifi Direct name via reflection (not recommended)
+    */
+    public static void setDeviceNameViaReflection(String devName, WifiP2pManager manager, WifiP2pManager.Channel channel) {
+        try {
+            Class[] paramTypes = new Class[3];
+            paramTypes[0] = WifiP2pManager.Channel.class;
+            paramTypes[1] = String.class;
+            paramTypes[2] = WifiP2pManager.ActionListener.class;
+            Method setDeviceName = manager.getClass().getMethod("setDeviceName", paramTypes);
+            setDeviceName.setAccessible(true);
+
+            Object arglist[] = new Object[3];
+            arglist[0] = channel;
+            arglist[1] = devName;
+            arglist[2] = new WifiP2pManager.ActionListener() {
+
+                @Override
+                public void onSuccess() {
+                    Log.d("toto", "setDeviceName succeeded");
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    Log.d("toto", "setDeviceName failed");
+                }
+            };
+
+            setDeviceName.invoke(manager, arglist);
+
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
 }

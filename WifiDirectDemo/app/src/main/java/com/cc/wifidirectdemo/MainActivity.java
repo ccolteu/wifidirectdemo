@@ -19,12 +19,14 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -42,6 +44,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+
+    public final static boolean USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES = true;
 
     public static final int SOCKET_PORT = 8988;
 
@@ -62,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
     private WifiP2pManager.PeerListListener mPeerListListener;
     private ListView mPeersListView;
     private WiFiPeerListAdapter mWiFiPeerListAdapter;
+
+    private View mRefreshButton;
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
     private WifiP2pInfo info;
@@ -123,7 +129,11 @@ public class MainActivity extends AppCompatActivity {
     public void updateThisDevice(WifiP2pDevice device) {
         this.thisDevice = device;
         TextView view = (TextView) findViewById(R.id.my_name);
-        view.setText(device.deviceName);
+        if (USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES) {
+            view.setText(device.deviceName.replace("com.cc.wifidirectdemo", ""));
+        } else {
+            view.setText(device.deviceName);
+        }
         view = (TextView) findViewById(R.id.my_status);
         view.setText(getDeviceStatus(device.status));
         if (device.status == WifiP2pDevice.CONNECTED) {
@@ -170,7 +180,8 @@ public class MainActivity extends AppCompatActivity {
         // Registers the application with the Wi-Fi framework
         mWifiP2pChannel = mWifiP2pManager.initialize(this, getMainLooper(), mChannelListener);
 
-        findViewById(R.id.btn_discover).setOnClickListener(new View.OnClickListener() {
+        mRefreshButton = findViewById(R.id.btn_refresh);
+        mRefreshButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 discover();
@@ -191,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_send_photos).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendPhotos(getPhotosPaths());
+                sendPhotos(getPhotosData());
             }
         });
 
@@ -204,8 +215,20 @@ public class MainActivity extends AppCompatActivity {
                 if (progressDialog != null && progressDialog.isShowing()) {
                     progressDialog.dismiss();
                 }
+                mRefreshButton.clearAnimation();
                 peers.clear();
-                peers.addAll(peerList.getDeviceList());
+
+                if (USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES) {
+                    for (WifiP2pDevice d:peerList.getDeviceList()) {
+                        if (!(TextUtils.isEmpty(d.deviceName)) && d.deviceName.toLowerCase().startsWith("com.cc.wifidirectdemo")) {
+                            d.deviceName = d.deviceName.replace("com.cc.wifidirectdemo", "");
+                            peers.add(d);
+                        }
+                    }
+                } else {
+                    peers.addAll(peerList.getDeviceList());
+                }
+
                 mWiFiPeerListAdapter.notifyDataSetChanged();
                 if (peers.size() == 0) {
                     Log.d("toto", "No peer devices found!");
@@ -264,9 +287,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+
+        if (USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES) {
+            String deviceId = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
+            Utils.setDeviceNameViaReflection("com.cc.wifidirectdemo" + deviceId, mWifiP2pManager, mWifiP2pChannel);
+        }
+
+        discover();
     }
 
     private void discover() {
+
+        mRefreshButton.startAnimation(AnimationUtils.loadAnimation(mActivity, R.anim.rotation));
 
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
@@ -380,42 +412,48 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User has picked an image, send it
         Uri uri = data.getData();
-        //sendPhoto(getPathFromUri(uri));
-        sendPhoto(Utils.getPath(this.getBaseContext(), uri));
+
+        // does not work on Marshmallow
+        //String path = getPathFromUri(uri);
+
+        String path = Utils.getPath(this.getBaseContext(), uri);
+
+        ArrayList<MetaData> photosData = new ArrayList<>();
+        MetaData photoData = new MetaData();
+        photoData.absolute_path = path;
+        photoData.filename = path.substring(path.lastIndexOf("/") + 1);
+        photosData.add(photoData);
+
+        sendPhotos(photosData);
     }
 
-    private void sendPhoto(String  path) {
+    private void sendPhotos(ArrayList<MetaData> data) {
         ((TextView) findViewById(R.id.status_text)).setText("Sending...");
-        Log.d("toto", "Sending path: " + path);
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
         serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, path);
+        serviceIntent.putParcelableArrayListExtra(FileTransferService.EXTRAS_FILES, data);
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
         mActivity.startService(serviceIntent);
     }
 
-    private void sendPhotos(ArrayList<String> pathsArray) {
+    private ArrayList<MetaData> getPhotosData() {
 
-//        for (String path:pathsArray) {
-//            sendPhoto(path);
-//        }
+        ArrayList<MetaData> photosData = new ArrayList<>();
 
-        // alternate way that only creates on thread (service intent called only once)
-        ((TextView) findViewById(R.id.status_text)).setText("Sending...");
-        Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
-        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-        serviceIntent.putStringArrayListExtra(FileTransferService.EXTRAS_FILE_PATHS, pathsArray);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
-        mActivity.startService(serviceIntent);
-    }
+        String path = Environment.getExternalStorageDirectory() + "/send/01.jpg";
+        MetaData photoData = new MetaData();
+        photoData.absolute_path = path;
+        photoData.filename = path.substring(path.lastIndexOf("/") + 1);
+        photosData.add(photoData);
 
-    private ArrayList<String> getPhotosPaths() {
-        ArrayList<String> pathsArray = new ArrayList<>();
-        pathsArray.add(Environment.getExternalStorageDirectory() + "/send/01.jpg");
-        pathsArray.add(Environment.getExternalStorageDirectory() + "/send/02.jpg");
-        return pathsArray;
+        path = Environment.getExternalStorageDirectory() + "/send/02.jpg";
+        photoData = new MetaData();
+        photoData.absolute_path = path;
+        photoData.filename = path.substring(path.lastIndexOf("/") + 1);
+        photosData.add(photoData);
+
+        return photosData;
     }
 
 
@@ -462,7 +500,8 @@ public class MainActivity extends AppCompatActivity {
 
                     // the name of the file received is sent along with
                     // the photo itself and extracted from the byte stream
-                    String fileName = copyFile(inputstream, new FileOutputStream(file));
+                    MetaData metaData = copyFile(inputstream, new FileOutputStream(file));
+                    String fileName = metaData.filename;
 
                     String receivedFilePath = file.getAbsolutePath();
                     if (!TextUtils.isEmpty(fileName)) {
@@ -613,10 +652,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String copyFile(InputStream inputStream, OutputStream outputStream) {
+    private MetaData copyFile(InputStream inputStream, OutputStream outputStream) {
         byte buf[] = new byte[1024];
         byte data[] = new byte[1024];
-        String fileName = null;
+        MetaData metaData = null;
         int len;
         try {
 
@@ -624,7 +663,9 @@ public class MainActivity extends AppCompatActivity {
             len = inputStream.read(data, 0, 1024);
             if (len != -1) {
                 String dataString = new String(data);
-                fileName = dataString.substring(0, dataString.indexOf("|"));
+                metaData = new MetaData();
+                String s[] = dataString.split("\\|");
+                metaData.filename = s[0];
             }
 
             // get photo
@@ -639,7 +680,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("toto", e.toString());
             return null;
         }
-        return fileName;
+        return metaData;
     }
 
     private String getPathFromUri(Uri contentUri) {
