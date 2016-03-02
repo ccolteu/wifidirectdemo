@@ -1,10 +1,8 @@
 package com.cc.wifidirectdemo;
 
 import android.app.IntentService;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.FileInputStream;
@@ -22,8 +20,8 @@ public class FileTransferService extends IntentService {
     private static final int SOCKET_TIMEOUT = 30000;
     public static final String ACTION_SEND_FILE = "com.cc.wifidirectdemo.SEND_FILE";
     public static final String EXTRAS_FILES = "files";
-    public static final String EXTRAS_GROUP_OWNER_ADDRESS = "go_host";
     public static final String EXTRAS_GROUP_OWNER_PORT = "go_port";
+    public static final String EXTRAS_CLIENTS_IPS = "clients_ips";
 
     public FileTransferService(String name) {
         super(name);
@@ -38,23 +36,25 @@ public class FileTransferService extends IntentService {
         if (intent.getAction().equals(ACTION_SEND_FILE)) {
             Bundle extras = intent.getExtras();
             ArrayList<MetaData> files = extras.getParcelableArrayList(EXTRAS_FILES);
-            String host = intent.getExtras().getString(EXTRAS_GROUP_OWNER_ADDRESS);
+            ArrayList<String> clientsIPs = intent.getStringArrayListExtra(EXTRAS_CLIENTS_IPS);
             int port = intent.getExtras().getInt(EXTRAS_GROUP_OWNER_PORT);
             if (files != null && files.size() > 0) {
                 for (MetaData fileData : files) {
-                    sendFile(host, port, fileData);
+                    for (String clientIP:clientsIPs) {
+                        sendFile(clientIP, port, fileData);
+                    }
                 }
             }
         }
     }
 
-    private void sendFile(String host, int port, MetaData fileData) {
+    private void sendFile(String ip, int port, MetaData fileData) {
         Log.e("toto", "Sender: send " + fileData.absolute_path);
         Socket socket = new Socket();
         try {
             socket.bind(null);
-            Log.e("toto", "Sender: connect on " + host + ":" + port);
-            socket.connect((new InetSocketAddress(host, port)), SOCKET_TIMEOUT);
+            Log.e("toto", "Sender: connect on " + ip + ":" + port);
+            socket.connect((new InetSocketAddress(ip, port)), SOCKET_TIMEOUT);
             OutputStream outputStream = socket.getOutputStream();
             InputStream inputStream = new FileInputStream(fileData.absolute_path);
             copyFile(inputStream, outputStream, getDataBytes(fileData));

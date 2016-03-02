@@ -3,11 +3,9 @@ package com.cc.wifidirectdemo;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -18,7 +16,6 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -37,7 +34,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -61,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
 
     private List<WifiP2pDevice> peers = new ArrayList<>();
     private ProgressDialog progressDialog = null;
-    private WifiP2pDevice thisDevice, remoteConnectedDevice;
+    public ArrayList<String> receiversIPs = new ArrayList<>();
 
     private WifiP2pManager.PeerListListener mPeerListListener;
     private ListView mPeersListView;
@@ -77,8 +77,14 @@ public class MainActivity extends AppCompatActivity {
     private boolean initiatedConnection = false;
     private boolean isConnected = false;
 
+    // used by Receiver(s) to receive photos
     private Thread socketServerThread;
     private ServerSocket serverSocket;
+
+    // used by Sender to receive Receiver(s) IP(s)
+    private Thread ipSocketServerThread;
+    private ServerSocket ipServerSocket;
+
     private View mStatusBar;
 
     public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
@@ -100,6 +106,16 @@ public class MainActivity extends AppCompatActivity {
                 // this will unblock socketServerThread: accept() will
                 // throw a SocketException and terminate the thread
                 serverSocket.close();
+            }
+        } catch (IOException e) {
+
+        }
+
+        try {
+            if (ipServerSocket != null) {
+                // this will unblock ipSocketServerThread: accept() will
+                // throw a SocketException and terminate the thread
+                ipServerSocket.close();
             }
         } catch (IOException e) {
 
@@ -127,7 +143,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void updateThisDevice(WifiP2pDevice device) {
-        this.thisDevice = device;
         TextView view = (TextView) findViewById(R.id.my_name);
         if (USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES) {
             view.setText(device.deviceName.replace("com.cc.wifidirectdemo", ""));
@@ -141,10 +156,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             view.setTextColor(getResources().getColor(android.R.color.black));
         }
-    }
-
-    private void updateRemoteDevice(WifiP2pDevice device) {
-        this.remoteConnectedDevice = device;
     }
 
     @Override
@@ -253,34 +264,65 @@ public class MainActivity extends AppCompatActivity {
 
                 if (info.groupFormed) {
 
-                    // The Group Owner should be acting as the server Receiving the photos,
-                    // while the other device shall act as the client Sending the photos.
-                    // This condition should really be "if (!info.isGroupOwner)"
+                    // The Group Owner should be acting as the sender of the photos,
+                    // while the other device(s) shall act as the receivers of the photos.
+                    // This condition should really be "if (info.isGroupOwner)"
                     // but we made sure that the device that initiates the connection
-                    // (initiatedConnection is true) will not be the group owner by
-                    // setting config.groupOwnerIntent = 0 when initiating the connection
+                    // (initiatedConnection is true) will be the group owner by
+                    // setting config.groupOwnerIntent = 15 when initiating the connection
                     if (initiatedConnection) {
 
-                        // client / Sender
+                        // Sender (Group Owner)
 
                         Log.e("toto", "I am the Sender, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
-                        Log.e("toto", "Group owner IP: " + info.groupOwnerAddress.getHostAddress());
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
                         //findViewById(R.id.btn_send_photos).setVisibility(View.VISIBLE);
                         ((TextView) findViewById(R.id.status_text)).setText("Ready to Send Photo");
 
+                        // never-ending blocking thread waiting to receive Receivers IPs
+                        ipSocketServerThread = new Thread(new IPSocketServerThread());
+                        ipSocketServerThread.start();
+
                     } else {
 
-                        // server / Receiver
+                        // Receiver
 
                         Log.e("toto", "I am the Receiver, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
-                        Log.e("toto", "Group owner IP: " + info.groupOwnerAddress);
+
+                        // send my IP to the Sender (so that it knows to send me the photos)
+                        new android.os.Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        try {
+                                            Socket socket = new Socket();
+                                            socket.bind(null);
+                                            socket.connect((new InetSocketAddress(mActivity.info.groupOwnerAddress.getHostAddress(), SOCKET_PORT)), 30000);
+                                            OutputStream os = socket.getOutputStream();
+                                            ObjectOutputStream oos = new ObjectOutputStream(os);
+                                            oos.writeObject(new String("BROFIST"));
+                                            oos.close();
+                                            os.close();
+                                            socket.close();
+                                            Log.e("toto", "sent IP to GO");
+                                        } catch (Exception e) {
+                                            Log.e("toto", "ERROR sending IP to GO: " + e.getMessage());
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                }).start();
+                            }
+                        }, 2000);
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
                         findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
 
                         Log.e("toto", "Receiver: create a server thread waiting for Sender to open a connection");
+
+                        // never-ending blocking thread waiting to receive Sender photos
                         socketServerThread = new Thread(new SocketServerThread());
                         socketServerThread.start();
                     }
@@ -326,10 +368,10 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void connect() {
+    private void connect(String deviceAddress) {
         initiatedConnection = true;
         WifiP2pConfig config = new WifiP2pConfig();
-        config.deviceAddress = remoteConnectedDevice.deviceAddress;
+        config.deviceAddress = deviceAddress;
         config.wps.setup = WpsInfo.PBC;
 
 
@@ -338,13 +380,13 @@ public class MainActivity extends AppCompatActivity {
         // to be a group owner. A value of -1 indicates the system can choose an appropriate value.
         // We want the device that initiates the connection to be the Sender, so we need
         // it NOT to be the group owner (the group owner always acts as the server / Receiver)
-        config.groupOwnerIntent = 0;
+        config.groupOwnerIntent = 15;
 
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
         progressDialog = ProgressDialog.show(mActivity, "Press back to cancel",
-                "Connecting to :" + remoteConnectedDevice.deviceAddress, true, true);
+                "Connecting to :" + deviceAddress, true, true);
 
         mWifiP2pManager.connect(mWifiP2pChannel, config, new WifiP2pManager.ActionListener() {
 
@@ -385,6 +427,8 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+
+        receiversIPs.clear();
     }
 
     @Override
@@ -413,9 +457,6 @@ public class MainActivity extends AppCompatActivity {
         // User has picked an image, send it
         Uri uri = data.getData();
 
-        // does not work on Marshmallow
-        //String path = getPathFromUri(uri);
-
         String path = Utils.getPath(this.getBaseContext(), uri);
 
         ArrayList<MetaData> photosData = new ArrayList<>();
@@ -432,7 +473,7 @@ public class MainActivity extends AppCompatActivity {
         Intent serviceIntent = new Intent(mActivity, FileTransferService.class);
         serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
         serviceIntent.putParcelableArrayListExtra(FileTransferService.EXTRAS_FILES, data);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, info.groupOwnerAddress.getHostAddress());
+        serviceIntent.putStringArrayListExtra(FileTransferService.EXTRAS_CLIENTS_IPS, receiversIPs);
         serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, SOCKET_PORT);
         mActivity.startService(serviceIntent);
     }
@@ -456,10 +497,38 @@ public class MainActivity extends AppCompatActivity {
         return photosData;
     }
 
+    // This is a blocking thread (accept() is blocking) that runs forever (while (true)).
+    // To stop it you just close the ipServerSocket which will have accept() throw a SocketException
+    // thus unblocking the thread and terminating it.
+    // This thread is initiated by the Sender and is used to receive Receiver(s) IP(s)
+    private class IPSocketServerThread extends Thread {
 
-    // This is a blocking thread (serverSocket.accept()) that runs forever (while (true)).
+        @Override
+        public void run() {
+            try {
+                ipServerSocket = new ServerSocket(MainActivity.SOCKET_PORT);
+                while (true) {
+                    Log.e("toto", "Sender: blocked, waiting for Receiver IP ...");
+                    Socket socket = ipServerSocket.accept();
+                    ObjectInputStream objectInputStream = new ObjectInputStream(socket.getInputStream());
+                    Object object = objectInputStream.readObject();
+                    if (object.getClass().equals(String.class) && ((String) object).equals("BROFIST")) {
+                        Log.e("toto", "Sender: ... unblocked, got Receiver IP: " + socket.getInetAddress());
+                        receiversIPs.add(socket.getInetAddress().getHostAddress());
+                    }
+                    socket.close();
+                }
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // This is a blocking thread (accept() is blocking) that runs forever (while (true)).
     // To stop it you just close the serverSocket which will have accept() throw a SocketException
     // thus unblocking the thread and terminating it.
+    // This thread is initiated by the Receiver and is used to receive photos
     private class SocketServerThread extends Thread {
 
         int count = 0;
@@ -587,12 +656,12 @@ public class MainActivity extends AppCompatActivity {
                     bottom.setText(getDeviceStatus(device.status));
                     if (device.status == WifiP2pDevice.CONNECTED) {
                         bottom.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-                        updateRemoteDevice(device);
                     } else {
                         bottom.setTextColor(getResources().getColor(android.R.color.black));
                     }
                 }
-                if (connected(devices)) {
+
+                if (initiatedConnection) {
                     if (device.status == WifiP2pDevice.CONNECTED) {
                         v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
                         v.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
@@ -603,19 +672,40 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
                     } else {
-                        v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
                         v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
+                        v.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
+                        v.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                connect(device.deviceAddress);
+                            }
+                        });
                     }
                 } else {
-                    v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
-                    v.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
-                    v.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            remoteConnectedDevice = device;
-                            connect();
+                    if (connected(devices)) {
+                        if (device.status == WifiP2pDevice.CONNECTED) {
+                            v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                            v.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+                            v.findViewById(R.id.btn_disconnect).setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    disconnect();
+                                }
+                            });
+                        } else {
+                            v.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+                            v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
                         }
-                    });
+                    } else {
+                        v.findViewById(R.id.btn_disconnect).setVisibility(View.GONE);
+                        v.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
+                        v.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                connect(device.deviceAddress);
+                            }
+                        });
+                    }
                 }
             }
             return v;
@@ -681,17 +771,6 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
         return metaData;
-    }
-
-    private String getPathFromUri(Uri contentUri) {
-        String[] proj = { MediaStore.Images.Media.DATA };
-        CursorLoader loader = new CursorLoader(mActivity, contentUri, proj, null, null, null);
-        Cursor cursor = loader.loadInBackground();
-        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-        cursor.moveToFirst();
-        String result = cursor.getString(column_index);
-        cursor.close();
-        return result;
     }
 
 }
