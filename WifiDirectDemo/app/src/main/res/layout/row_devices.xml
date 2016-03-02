@@ -15,14 +15,18 @@
             android:id="@+id/btn_connect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Connect"
+            android:text="OFF"
+            android:background="@drawable/button_off_bg"
+            android:textColor="@android:color/white"
             android:visibility="gone" />
 
         <Button
             android:id="@+id/btn_disconnect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Disconnect"
+            android:text="ON"
+            android:background="@drawable/button_on_bg"
+            android:textColor="@android:color/white"
             android:visibility="gone" />
 
     </RelativeLayout>

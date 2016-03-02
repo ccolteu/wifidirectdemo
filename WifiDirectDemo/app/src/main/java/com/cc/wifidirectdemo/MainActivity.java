@@ -86,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     private ServerSocket ipServerSocket;
 
     private View mStatusBar;
+    private TextView mRemoteDevicesTitle;
 
     public void setIsWifiP2pEnabled(boolean isWifiP2pEnabled) {
         this.isWifiP2pEnabled = isWifiP2pEnabled;
@@ -94,6 +95,17 @@ public class MainActivity extends AppCompatActivity {
     public void resetPeers() {
         peers.clear();
         mWiFiPeerListAdapter.notifyDataSetChanged();
+        updateRemoteDevicesTitle();
+    }
+
+    private void updateRemoteDevicesTitle() {
+        if (initiatedConnection) {
+            mRemoteDevicesTitle.setText("SEND TO THESE REMOTE DEVICES");
+        } else {
+            if (connected(peers)) {
+                mRemoteDevicesTitle.setText("RECEIVE FROM THIS REMOTE DEVICE");
+            }
+        }
     }
 
     public void resetDetailsData() {
@@ -167,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mStatusBar = findViewById(R.id.status_bar);
+        mRemoteDevicesTitle = (TextView) findViewById(R.id.remote_devices_title);
 
         mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
 
@@ -241,6 +254,8 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 mWiFiPeerListAdapter.notifyDataSetChanged();
+                updateRemoteDevicesTitle();
+
                 if (peers.size() == 0) {
                     Log.d("toto", "No peer devices found!");
                     return;
@@ -295,6 +310,16 @@ public class MainActivity extends AppCompatActivity {
                         ipSocketServerThread.start();
 
                     } else {
+
+                        if (info.isGroupOwner) {
+                            // this should not happen often - we did request to be
+                            // group owner, but just in case we'll have to try again
+
+                            Log.e("toto", "Receiver: requested NOT to be Group Owner, was not granted the request, so disconnect and have the user try again");
+
+                            disconnect();
+                            return;
+                        }
 
                         // Receiver
 
@@ -440,6 +465,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         receiversIPs.clear();
+
+        mRemoteDevicesTitle.setText("SEND TO THESE REMOTE DEVICES");
 
         discover();
     }

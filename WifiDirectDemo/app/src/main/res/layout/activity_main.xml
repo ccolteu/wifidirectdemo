@@ -39,7 +39,11 @@
                     android:id="@+id/btn_send_photo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Send Photo"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
+                    android:text="SEND PHOTO"
+                    android:background="@drawable/button_on_bg"
+                    android:textColor="@android:color/white"
                     android:visibility="gone" />
 
             </RelativeLayout>
@@ -77,11 +81,12 @@
             android:layout_height="50dp">
 
             <TextView
+                android:id="@+id/remote_devices_title"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentBottom="true"
                 android:gravity="center_vertical"
-                android:text="REMOTE DEVICES"
+                android:text="SEND TO THESE REMOTE DEVICES"
                 android:textColor="#6262c1"
                 android:textStyle="bold" />
 

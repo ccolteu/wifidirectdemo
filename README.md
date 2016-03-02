@@ -1,20 +1,19 @@
 # wifidirectdemo
 
-The device that initiates the connection will be the sender, while the device that accepts the connection will be the receiver.
+This demo allows to send photos from one device (SENDER) to multiple devices (RECEIVERS) via Wifi Direct (i.e. no Wifi/LTE/4G connectivity needed).
 
-1. press DISCOVER on both devices
-2. on one device - the sender - press CONNECT in a row of remote devices - which will become the receiver 
-3. on receiver device accept connection
-4. on sender device press SEND PHOTO, pick photo using your favorite photo app
-5. the receiver device will receive the photo
-6. press DISCONNECT on any device
+1. To initiate sending photos turn ON the toggle for one remote device. At that point your device becomes the SENDER. You can continue turning ON toggels for other remote devices to send to multiple devices. 
+2. On the remote devices accept the connection thus turning them into RECEIVERS. 
+2. Click SEND PHOTO on the SENDER to send a photos to all RECEIVERS. 
+3. To stop receiving photos on the RECEIVER device turn toggle OFF.
+4. To stop sending photos to all RECEIVERS turn toggle OFF on the SENDER.
 
-Note that the photo filename is sent along as well so that it is preserved on the receiving device (see Receiver screenshot below). As a matter of fact 1kB worth of metadata (currently just the file name) is pre-pended to the photo byte array stream when sent and parsed on the receiving end.
+Note that the photo filename is sent along as well so that it is preserved on the receiving device (see RECEIVER screenshot below). As a matter of fact 1kB worth of metadata (currently just the file name) is pre-pended to the photo byte array stream when sent and parsed on the receiving end.
 
-Sender (initiates the connection):
+SENDER:
 
 ![Alt text](/sender.png?raw=true "initiates connection to send")
 
-Receiver (accepts the connection):
+RECEIVER:
 
 ![Alt text](/receiver.png?raw=true "accepts connection to receive")
