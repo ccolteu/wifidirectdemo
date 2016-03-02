@@ -92,6 +92,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                     mMainActivity.resetDetailsData();
 
                     mMainActivity.setInitiatedConnectionFlag(false);
+
+                    mMainActivity.discover();
                 }
 
                 break;

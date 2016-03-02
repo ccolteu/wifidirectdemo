@@ -272,9 +272,19 @@ public class MainActivity extends AppCompatActivity {
                     // setting config.groupOwnerIntent = 15 when initiating the connection
                     if (initiatedConnection) {
 
+                        if (!info.isGroupOwner) {
+                            // this should not happen often - we did request to be
+                            // group owner, but just in case we'll have to try again
+
+                            Log.e("toto", "Sender: requested to be Group Owner, was not granted the request, so disconnect and have the user try again");
+
+                            disconnect();
+                            return;
+                        }
+
                         // Sender (Group Owner)
 
-                        Log.e("toto", "I am the Sender, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
+                        Log.e("toto", "I am the Sender, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the Group Owner");
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.VISIBLE);
                         //findViewById(R.id.btn_send_photos).setVisibility(View.VISIBLE);
@@ -288,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
 
                         // Receiver
 
-                        Log.e("toto", "I am the Receiver, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the group owner");
+                        Log.e("toto", "I am the Receiver, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the Group Owner");
 
                         // send my IP to the Sender (so that it knows to send me the photos)
                         new android.os.Handler().postDelayed(new Runnable() {
@@ -315,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 }).start();
                             }
-                        }, 2000);
+                        }, 500);
 
                         findViewById(R.id.btn_send_photo).setVisibility(View.GONE);
                         findViewById(R.id.btn_send_photos).setVisibility(View.GONE);
@@ -338,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
         discover();
     }
 
-    private void discover() {
+    public void discover() {
 
         mRefreshButton.startAnimation(AnimationUtils.loadAnimation(mActivity, R.anim.rotation));
 
@@ -430,6 +440,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         receiversIPs.clear();
+
+        discover();
     }
 
     @Override
