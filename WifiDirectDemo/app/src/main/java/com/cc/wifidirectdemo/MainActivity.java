@@ -378,8 +378,9 @@ public class MainActivity extends AppCompatActivity {
         // This is an integer value between 0 and 15 where 0 indicates the least
         // inclination to be a group owner and 15 indicates the highest inclination
         // to be a group owner. A value of -1 indicates the system can choose an appropriate value.
-        // We want the device that initiates the connection to be the Sender, so we need
-        // it NOT to be the group owner (the group owner always acts as the server / Receiver)
+        // We want the device that initiates the connection to be the Sender, and we need it to
+        // send to multiple devices, so it needs to be the Group Owner so it can collect IPs from
+        // Receiver(s) to know to whom to send the photos.
         config.groupOwnerIntent = 15;
 
         if (progressDialog != null && progressDialog.isShowing()) {
