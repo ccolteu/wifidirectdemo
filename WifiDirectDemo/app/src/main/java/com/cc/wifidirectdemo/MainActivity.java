@@ -52,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
     private MainActivity mActivity;
 
     private WifiP2pManager mWifiP2pManager;
-    private WifiP2pManager.ChannelListener mChannelListener;
     private boolean isWifiP2pEnabled = false;
     private boolean retryChannel = true;
 
@@ -175,35 +174,17 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         mActivity = this;
-
         setContentView(R.layout.activity_main);
 
+
+        /*
+        UI setup
+         */
         mStatusBar = findViewById(R.id.status_bar);
         mRemoteDevicesTitle = (TextView) findViewById(R.id.remote_devices_title);
-
-        mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-
-        mChannelListener = new WifiP2pManager.ChannelListener() {
-            @Override
-            public void onChannelDisconnected() {
-
-                if (mWifiP2pManager != null && retryChannel) {
-                    Toast.makeText(mActivity, "Channel lost. Trying again", Toast.LENGTH_LONG).show();
-
-                    // we will try once more
-                    resetPeers();
-                    resetDetailsData();
-                    retryChannel = false;
-                    mWifiP2pManager.initialize(mActivity, getMainLooper(), mChannelListener);
-
-                } else {
-                    Toast.makeText(mActivity, "Severe! Channel is probably permanently lost. Try Disable/Re-Enable P2P.", Toast.LENGTH_LONG).show();
-                }
-            }
-        };
-        // Registers the application with the Wi-Fi framework
-        mWifiP2pChannel = mWifiP2pManager.initialize(this, getMainLooper(), mChannelListener);
-
+        mPeersListView = (ListView) findViewById(R.id.peers_list);
+        mWiFiPeerListAdapter = new WiFiPeerListAdapter(mActivity, R.layout.row_devices, peers);
+        mPeersListView.setAdapter(mWiFiPeerListAdapter);
         mRefreshButton = findViewById(R.id.btn_refresh);
         mRefreshButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -211,7 +192,6 @@ public class MainActivity extends AppCompatActivity {
                 discover();
             }
         });
-
         findViewById(R.id.btn_send_photo).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -222,7 +202,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);
             }
         });
-
         findViewById(R.id.btn_send_photos).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -230,9 +209,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mPeersListView = (ListView) findViewById(R.id.peers_list);
-        mWiFiPeerListAdapter = new WiFiPeerListAdapter(mActivity, R.layout.row_devices, peers);
-        mPeersListView.setAdapter(mWiFiPeerListAdapter);
+
+        /*
+        used by WifiDirectBroadcastReceiver
+         */
         mPeerListListener = new WifiP2pManager.PeerListListener() {
             @Override
             public void onPeersAvailable(WifiP2pDeviceList peerList) {
@@ -267,6 +247,10 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+
+        /*
+        used by WifiDirectBroadcastReceiver
+         */
         mConnectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
             @Override
             public void onConnectionInfoAvailable(WifiP2pInfo info) {
@@ -365,13 +349,81 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+
+        /*
+         register with the WifiP2p framework and get a channel
+          */
+        mWifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
+        mWifiP2pChannel = mWifiP2pManager.initialize(this, getMainLooper(), new WifiP2pManager.ChannelListener() {
+            @Override
+            public void onChannelDisconnected() {
+
+                if (mWifiP2pManager != null && retryChannel) {
+                    Toast.makeText(mActivity, "Channel lost. Trying again", Toast.LENGTH_LONG).show();
+
+                    // we will try once more
+                    resetPeers();
+                    resetDetailsData();
+                    retryChannel = false;
+                    mWifiP2pManager.initialize(mActivity, getMainLooper(), this);
+
+                } else {
+                    Toast.makeText(mActivity, "Severe! Channel is probably permanently lost. Try Disable/Re-Enable P2P.", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+
+        /*
+        filter out non supported devices by sending a specific the device name to the WifiP2p framework
+         */
         if (USE_REFLECTION_TO_FILTER_OUT_NON_SUPPORTED_DEVICES) {
             String deviceId = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
             Utils.setDeviceNameViaReflection("com.cc.wifidirectdemo" + deviceId, mWifiP2pManager, mWifiP2pChannel);
         }
 
+
         discover();
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        mWifiP2pReceiver = new WiFiDirectBroadcastReceiver(mWifiP2pManager, mWifiP2pChannel, this);
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
+
+        // as soon as we register we will start receiving events
+        registerReceiver(mWifiP2pReceiver, intentFilter);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mWifiP2pReceiver != null) {
+            unregisterReceiver(mWifiP2pReceiver);
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+        // User has picked an image, send it
+        Uri uri = data.getData();
+        String path = Utils.getPath(this.getBaseContext(), uri);
+        ArrayList<MetaData> photosData = new ArrayList<>();
+        MetaData photoData = new MetaData();
+        photoData.absolute_path = path;
+        photoData.filename = path.substring(path.lastIndexOf("/") + 1);
+        photosData.add(photoData);
+
+        sendPhotos(photosData);
+    }
+
 
     public void discover() {
 
@@ -455,13 +507,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        if (serverSocket != null) {
-            try {
+        try {
+            if (serverSocket != null) {
+                // this will unblock ipSocketServerThread: accept() will
+                // throw a SocketException and terminate the thread
                 serverSocket.close();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+        }
+
+        try {
+            if (ipServerSocket != null) {
+                // this will unblock ipSocketServerThread: accept() will
+                // throw a SocketException and terminate the thread
+                ipServerSocket.close();
+            }
+        } catch (IOException e) {
         }
 
         receiversIPs.clear();
@@ -469,43 +530,6 @@ public class MainActivity extends AppCompatActivity {
         mRemoteDevicesTitle.setText("SEND TO THESE REMOTE DEVICES");
 
         discover();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mWifiP2pReceiver = new WiFiDirectBroadcastReceiver(mWifiP2pManager, mWifiP2pChannel, this);
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-        // as soon as we register we will start receiving events
-        registerReceiver(mWifiP2pReceiver, intentFilter);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        if (mWifiP2pReceiver != null) {
-            unregisterReceiver(mWifiP2pReceiver);
-        }
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // User has picked an image, send it
-        Uri uri = data.getData();
-
-        String path = Utils.getPath(this.getBaseContext(), uri);
-
-        ArrayList<MetaData> photosData = new ArrayList<>();
-        MetaData photoData = new MetaData();
-        photoData.absolute_path = path;
-        photoData.filename = path.substring(path.lastIndexOf("/") + 1);
-        photosData.add(photoData);
-
-        sendPhotos(photosData);
     }
 
     private void sendPhotos(ArrayList<MetaData> data) {
