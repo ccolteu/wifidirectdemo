@@ -16,13 +16,13 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
     private WifiP2pManager mWifiP2pManager;
     private Channel mWifiP2pChannel;
-    private MainActivity mMainActivity;
+    private WifiDirectService mService;
 
-    public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, MainActivity activity) {
+    public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel, WifiDirectService service) {
         super();
         this.mWifiP2pManager = manager;
         this.mWifiP2pChannel = channel;
-        this.mMainActivity = activity;
+        this.mService = service;
     }
 
     @Override
@@ -38,12 +38,12 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
                 if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
                     Log.d("toto", "---> received STATE_CHANGED, state = WIFI_P2P_STATE_ENABLED");
-                    mMainActivity.setIsWifiP2pEnabled(true);
+                    mService.setIsWifiP2pEnabled(true);
                 } else if (state == WifiP2pManager.WIFI_P2P_STATE_DISABLED) {
                     Log.d("toto", "---> received STATE_CHANGED, state = WIFI_P2P_STATE_DISABLED, reset peers");
-                    mMainActivity.setIsWifiP2pEnabled(false);
-                    mMainActivity.resetPeers();
-                    mMainActivity.resetDetailsData();
+                    mService.setIsWifiP2pEnabled(false);
+                    mService.resetPeers();
+                    mService.resetDetailsData();
                 }
 
                 break;
@@ -54,7 +54,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                 // request available peers from the wifi p2p manager
                 if (mWifiP2pManager != null) {
-                    mWifiP2pManager.requestPeers(mWifiP2pChannel, mMainActivity.getPeerListListener());
+                    mWifiP2pManager.requestPeers(mWifiP2pChannel, mService.getPeerListListener());
                 }
 
                 break;
@@ -69,31 +69,31 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                 if (networkInfo.isConnected()) {
 
-                    if (mMainActivity.isConnected()) {
+                    if (mService.isConnected()) {
                         return;
                     }
 
-                    mMainActivity.setIsConnected(true);
+                    mService.setIsConnected(true);
 
                     Log.d("toto", "---> received CONNECTION_CHANGED, connected, call requestConnectionInfo");
 
                     // connected with the other device, request
                     // connection info to find group owner IP
-                    mWifiP2pManager.requestConnectionInfo(mWifiP2pChannel, mMainActivity.getConnectionInfoListener());
+                    mWifiP2pManager.requestConnectionInfo(mWifiP2pChannel, mService.getConnectionInfoListener());
 
                 } else {
 
-                    mMainActivity.setIsConnected(false);
+                    mService.setIsConnected(false);
 
                     Log.d("toto", "---> received CONNECTION_CHANGED, disconnected, reset peers");
 
                     // disconnected, update UI
-                    mMainActivity.resetPeers();
-                    mMainActivity.resetDetailsData();
+                    mService.resetPeers();
+                    mService.resetDetailsData();
 
-                    mMainActivity.setInitiatedConnectionFlag(false);
+                    mService.setInitiatedConnectionFlag(false);
 
-                    mMainActivity.discover();
+                    mService.discover();
                 }
 
                 break;
@@ -102,9 +102,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                 WifiP2pDevice device = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
 
-                Log.d("toto", "---> received THIS_DEVICE_CHANGED, update UI with device name/status: " + device.deviceName + "/" + mMainActivity.getDeviceStatus(device.status));
+                Log.d("toto", "---> received THIS_DEVICE_CHANGED, update UI with device name/status: " + device.deviceName + "/" + Utils.getDeviceStatus(device.status));
 
-                mMainActivity.updateThisDevice(device);
+                mService.updateThisDevice(device);
 
                 break;
 
