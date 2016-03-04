@@ -7,9 +7,9 @@ Architecture considerations:
 
 StartActivity -> MainActivity <-> WifiDirectService
 
-StartActivity - dummy activity used to BACK out from MainActivity to illustrate that the connections are maintained beyond the activity hosting the UI
-MainActivity - hosts the connections UI and user controls (connect, send)
-WifiDirectService - maintains connections and their state
+1. StartActivity - dummy activity used to BACK out from MainActivity to illustrate that the connections are maintained beyond the activity hosting the UI
+2. MainActivity - hosts the connections UI and user controls (connect, send)
+3. WifiDirectService - maintains connections and their state
 
 The connections status and the connections themselves are maintained in a WifiDirectService so that they are not tight to the MainActivity initiating the service. 
 This WifiDirectService is bound so that we can access its public methods from the MainActivity binding to it, such as UI clicks that refresh the peers list. Also this WifiDirectService is started (startService is called) so that it will not be destroyed when the MainActivity is destroyed (unbindService is called).
@@ -35,4 +35,5 @@ SENDER:
 
 
 RECEIVERS:
+
 ![Alt text](/receivers.jpg?raw=true "accepts connection to receive")
