@@ -5,15 +5,15 @@ This demo allows to send photos from one device (SENDER) to multiple devices (RE
 
 Architecture considerations:
 
-StartActivity -> MainActivity <-> WifiDirectService
+StartActivity -> WifiDirectActivity <-> WifiDirectService
 
 1. StartActivity - dummy activity used to BACK out from MainActivity to illustrate that the connections are maintained beyond the activity hosting the UI
-2. MainActivity - hosts the connections UI and user controls (connect, send)
+2. WifiDirectActivity - hosts the connections UI and user controls (connect, send)
 3. WifiDirectService - maintains connections and their state
 
-The connections status and the connections themselves are maintained in a WifiDirectService so that they are not tight to the MainActivity initiating the service. 
-This WifiDirectService is bound so that we can access its public methods from the MainActivity binding to it, such as UI clicks that refresh the peers list. Also this WifiDirectService is started (startService is called) so that it will not be destroyed when the MainActivity is destroyed (unbindService is called).
-You can initiate a connection, press BACK to destroy MainActivity, launch it again (from StartActivity) and it will bind to the WifiDirectService and update the UI with the connections status.
+The connections status and the connections themselves are maintained in a WifiDirectService so that they are not tight to the WifiDirectActivity initiating the service. 
+This WifiDirectService is bound so that we can access its public methods from the WifiDirectActivity binding to it, such as UI clicks that refresh the peers list. Also this WifiDirectService is started (startService is called) so that it will not be destroyed when the WifiDirectActivity is destroyed (unbindService is called).
+You can initiate a connection, press BACK to destroy WifiDirectActivity, launch it again (from StartActivity) and it will bind to the WifiDirectService and update the UI with the connections status.
 
 The SENDER is the Group Owner (requested via config.groupOwnerIntent = 15). It will create a forever blocking thread awaiting to receive RECEIVERS IPs. The RECEIVER will first send its IP to the SENDER and then will create a forever blocking thread awaiting photos from the SENDER.
 
