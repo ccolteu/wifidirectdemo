@@ -7,7 +7,7 @@ Architecture considerations:
 
 StartActivity -> WifiDirectActivity <-> WifiDirectService
 
-1. StartActivity - dummy activity used to BACK out from MainActivity to illustrate that the connections are maintained beyond the activity hosting the UI
+1. StartActivity - dummy activity used to BACK out from WifiDirectActivity to illustrate that the connections are maintained beyond the activity hosting the UI
 2. WifiDirectActivity - hosts the connections UI and user controls (connect, send)
 3. WifiDirectService - maintains connections and their state
 
