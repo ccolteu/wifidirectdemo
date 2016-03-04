@@ -37,18 +37,18 @@ import java.util.List;
 public class WifiDirectService extends Service {
 
     public interface WifiDirectServiceCallbacks {
-        void resetPeers();
-        void refreshPeers(List<WifiP2pDevice> peers);
         void dismissProgress();
+        void showDiscoverUI();
+        void updateThisDeviceUI(WifiP2pDevice device);
+        void refreshPeersUI(List<WifiP2pDevice> peers);
+        void resetPeersUI();
+        void showConnectingDialog(String deviceAddress);
         void newConnectionInfoUpdateSenderUI();
         void newConnectionInfoUpdateReceiverUI();
-        void resetDetailsUI();
-        void showConnectingDialog(String deviceAddress);
         void updateRemoteDevicesTitle(String title);
-        void showDiscoverUI();
-        void updateThisDevice(WifiP2pDevice device);
         void showReadyToReceiveUI();
         void showPhotoReceivedUI(String path);
+        void resetPhotoReceivedUI();
     }
 
     private WifiDirectService mService;
@@ -155,7 +155,7 @@ public class WifiDirectService extends Service {
                 }
 
                 if (listener != null) {
-                    listener.refreshPeers(peers);
+                    listener.refreshPeersUI(peers);
                 }
 
             }
@@ -221,8 +221,8 @@ public class WifiDirectService extends Service {
 
                         Log.e("toto", "I am the Receiver, I" + (info.isGroupOwner? " AM ": " am NOT ") + "the Group Owner");
 
-                        final WifiP2pInfo infoCopy = info;
                         // send my IP to the Sender (so that it knows to send me the photos)
+                        final WifiP2pInfo infoCopy = info;
                         new android.os.Handler().postDelayed(new Runnable() {
                             @Override
                             public void run() {
@@ -276,7 +276,7 @@ public class WifiDirectService extends Service {
 
                     // we will try once more
                     if (listener != null) {
-                        listener.resetPeers();
+                        listener.resetPeersUI();
                         resetDetailsData();
                     }
                     retryChannel = false;
@@ -308,8 +308,11 @@ public class WifiDirectService extends Service {
 
         // as soon as we register we will start receiving events
         registerReceiver(mWifiP2pReceiver, intentFilter);
+    }
 
-        discover();
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        stopSelf();
     }
 
     @Override
@@ -317,6 +320,8 @@ public class WifiDirectService extends Service {
         super.onDestroy();
         Log.e("toto", "WifiDirectService:onDestroy");
 
+        disconnect();
+        stopServerThreads();
         if (mWifiP2pReceiver != null) {
             unregisterReceiver(mWifiP2pReceiver);
         }
@@ -385,7 +390,7 @@ public class WifiDirectService extends Service {
 
     public void resetDetailsData() {
         if (listener != null) {
-            listener.resetDetailsUI();
+            listener.resetPhotoReceivedUI();
         }
 
         mService.stopServerThreads();
@@ -528,6 +533,7 @@ public class WifiDirectService extends Service {
         public void run() {
             try {
 
+                // post to UI thread from within a Thread within a Service
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
 
                     @Override
@@ -536,7 +542,6 @@ public class WifiDirectService extends Service {
                         if (listener != null) {
                             listener.showReadyToReceiveUI();
                         }
-
                     }
                 });
 
@@ -586,15 +591,12 @@ public class WifiDirectService extends Service {
                     final String absolutePath = receivedFilePath;
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
 
-
                         @Override
                         public void run() {
 
                             if (listener != null) {
                                 listener.showPhotoReceivedUI(absolutePath);
                             }
-
-
                         }
                     });
                 }
@@ -639,13 +641,13 @@ public class WifiDirectService extends Service {
     public void updateThisDevice(WifiP2pDevice device) {
         thisDevice = device;
         if (listener != null) {
-            listener.updateThisDevice(device);
+            listener.updateThisDeviceUI(device);
         }
     }
 
     public void resetPeers() {
         if (listener != null) {
-            listener.resetPeers();
+            listener.resetPeersUI();
         }
     }
 

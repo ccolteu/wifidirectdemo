@@ -14,7 +14,6 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,11 +25,11 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class WifiDirectActivity extends AppCompatActivity {
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
 
-    private MainActivity mActivity;
+    private WifiDirectActivity mActivity;
     private WifiDirectService mService;
     private boolean mBound = false;
     WifiDirectService.WifiDirectServiceCallbacks serviceCallbacks;
@@ -50,8 +49,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        Log.e("toto", "+++ MainActivity:onCreate");
 
         mActivity = this;
         setContentView(R.layout.activity_main);
@@ -94,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
          */
         serviceCallbacks = new WifiDirectService.WifiDirectServiceCallbacks() {
             @Override
-            public void resetPeers() {
+            public void resetPeersUI() {
                 if (mActivity == null || !active) return;
 
                 peers.clear();
@@ -103,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void refreshPeers(List<WifiP2pDevice> peersList) {
+            public void refreshPeersUI(List<WifiP2pDevice> peersList) {
                 if (mActivity == null || !active) return;
 
                 if (progressDialog != null && progressDialog.isShowing()) {
@@ -144,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void resetDetailsUI() {
+            public void resetPhotoReceivedUI() {
                 if (mActivity == null || !active) return;
 
                 ((TextView) findViewById(R.id.status_text)).setText("");
@@ -190,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void updateThisDevice(WifiP2pDevice device) {
+            public void updateThisDeviceUI(WifiP2pDevice device) {
                 if (mActivity == null || !active) return;
 
                 mActivity.updateThisDevice(device);
@@ -234,7 +231,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        Log.e("toto", "+++ MainActivity:onResume");
 
         // Bind to WifiDirectService
 
@@ -249,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onPause() {
         super.onPause();
-        Log.e("toto", "+++ MainActivity:onPause");
 
         // Unbind from WifiDirectService
         if (mBound) {
@@ -262,12 +257,6 @@ public class MainActivity extends AppCompatActivity {
     public void onStop() {
         super.onStop();
         active = false;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        Log.e("toto", "+++ MainActivity:onDestroy");
     }
 
     @Override
@@ -297,7 +286,6 @@ public class MainActivity extends AppCompatActivity {
             mService = binder.getService();
             mBound = true;
             mService.setCallback(serviceCallbacks);
-
 
             // get the state of the device and peers from service and update UI accordingly
             if (mService.initiatedConnection()) {
@@ -331,6 +319,9 @@ public class MainActivity extends AppCompatActivity {
             if (device != null) {
                 updateThisDevice(device);
             }
+
+            // once bound and setup with the callbacks, discover
+            mService.discover();
         }
 
         @Override
@@ -357,15 +348,6 @@ public class MainActivity extends AppCompatActivity {
         photosData.add(photoData);
 
         return photosData;
-    }
-
-
-
-    private static void viewImageFile(Context context, String absolutePath) {
-        Intent intent = new Intent();
-        intent.setAction(android.content.Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse("file://" + absolutePath), "image/*");
-        context.startActivity(intent);
     }
 
 
@@ -489,6 +471,13 @@ public class MainActivity extends AppCompatActivity {
         } else {
             view.setTextColor(getResources().getColor(android.R.color.black));
         }
+    }
+
+    private static void viewImageFile(Context context, String absolutePath) {
+        Intent intent = new Intent();
+        intent.setAction(android.content.Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.parse("file://" + absolutePath), "image/*");
+        context.startActivity(intent);
     }
 
 }
