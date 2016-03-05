@@ -456,7 +456,19 @@ public class WifiDirectService extends Service {
 
             @Override
             public void onFailure(int reasonCode) {
-                Log.d("toto", "Disconnect failed. Reason: " + reasonCode);
+                switch (reasonCode) {
+                    case WifiP2pManager.P2P_UNSUPPORTED:
+                        Log.e("toto", "remove group failed. Reason: P2P_UNSUPPORTED");
+                        break;
+                    case WifiP2pManager.ERROR:
+                        Log.e("toto", "remove group failed. Reason: ERROR");
+                        break;
+                    case WifiP2pManager.BUSY:
+                        Log.e("toto", "remove group failed. Reason: BUSY");
+                        break;
+                    default:
+                        break;
+                }
             }
 
             @Override
