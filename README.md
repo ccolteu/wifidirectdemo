@@ -36,4 +36,5 @@ SENDER:
 
 RECEIVERS:
 
-![Alt text](/receivers.jpg?raw=true "accepts connection to receive")
+![Alt text](/receiver1.png?raw=true "accepts connection to receive")
+![Alt text](/receiver2.png?raw=true "accepts connection to receive")

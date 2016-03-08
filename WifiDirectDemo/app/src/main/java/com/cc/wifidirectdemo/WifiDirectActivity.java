@@ -7,13 +7,20 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.ShapeDrawable;
 import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.provider.Settings;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +29,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,10 +49,15 @@ public class WifiDirectActivity extends AppCompatActivity {
     private List<WifiP2pDevice> peers = new ArrayList<>();
 
     private View mRefreshButton;
+    private TextView mThisDeviceTitle;
+    private View mThisDeviceUnderline;
     private TextView mRemoteDevicesTitle;
+    private View mRemoteDevicesUnderline;
     private View mStatusBar;
 
-    static boolean active = false;
+    private static boolean active = false;
+
+    private String deviceColor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,12 +65,28 @@ public class WifiDirectActivity extends AppCompatActivity {
 
         mActivity = this;
         setContentView(R.layout.activity_main);
+        String deviceId = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
+        if (deviceId.length() > 6) {
+            deviceColor = deviceId.substring(0, 6);
+        } else {
+            deviceColor = deviceId;
+        }
+
+        ActionBar actionBar = getSupportActionBar();
+        actionBar.setBackgroundDrawable(new ColorDrawable(Integer.parseInt(deviceColor, 16) + 0xFF000000));
+        actionBar.setDisplayShowTitleEnabled(false);
+        actionBar.setDisplayShowTitleEnabled(true);
 
         /*
         UI setup
          */
-        mStatusBar = findViewById(R.id.status_bar);
+        mThisDeviceTitle = (TextView) findViewById(R.id.this_device_title);
+        mThisDeviceUnderline = findViewById(R.id.this_device_underline);
         mRemoteDevicesTitle = (TextView) findViewById(R.id.remote_devices_title);
+        mRemoteDevicesUnderline = findViewById(R.id.remote_devices_underline);
+        mStatusBar = findViewById(R.id.status_bar);
+        setDeviceColor();
+
         mPeersListView = (ListView) findViewById(R.id.peers_list);
         mWiFiPeerListAdapter = new WiFiPeerListAdapter(mActivity, R.layout.row_devices, peers);
         mPeersListView.setAdapter(mWiFiPeerListAdapter);
@@ -78,6 +107,7 @@ public class WifiDirectActivity extends AppCompatActivity {
                 startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);
             }
         });
+        setGradientBackgroundAndColor(findViewById(R.id.btn_send_photo), Integer.parseInt(deviceColor, 16) + 0xFF000000);
         findViewById(R.id.btn_send_photos).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -373,6 +403,23 @@ public class WifiDirectActivity extends AppCompatActivity {
             }
             final WifiP2pDevice device = devices.get(position);
             if (device != null) {
+
+                Drawable background = v.findViewById(R.id.btn_disconnect).getBackground();
+                if (background instanceof ShapeDrawable) {
+                    GradientDrawable gradientDrawable = (GradientDrawable)background;
+                    gradientDrawable.setColor(Integer.parseInt(deviceColor, 16) + 0xFF000000);
+                }
+
+                String deviceColor;
+                if (device.deviceName.length() > 6) {
+                    deviceColor = device.deviceName.substring(0, 6);
+                } else {
+                    deviceColor = device.deviceName;
+                }
+                setGradientBackgroundAndColor(v.findViewById(R.id.btn_disconnect), Integer.parseInt(deviceColor, 16) + 0xFF000000);
+                setGradientBackgroundAndColor(v.findViewById(R.id.btn_connect), 0xFFaaaaaa);
+                v.findViewById(R.id.remote_device_color_indicator).setBackgroundColor(Integer.parseInt(deviceColor, 16) + 0xFF000000);
+
                 TextView top = (TextView) v.findViewById(R.id.device_name);
                 TextView bottom = (TextView) v.findViewById(R.id.device_details);
                 if (top != null) {
@@ -478,6 +525,24 @@ public class WifiDirectActivity extends AppCompatActivity {
         intent.setAction(android.content.Intent.ACTION_VIEW);
         intent.setDataAndType(Uri.parse("file://" + absolutePath), "image/*");
         context.startActivity(intent);
+    }
+
+    private void setDeviceColor() {
+        Log.e("toto", "device color: " + deviceColor);
+        mThisDeviceTitle.setTextColor(Integer.parseInt(deviceColor, 16)+0xFF000000);
+        mThisDeviceUnderline.setBackgroundColor(Integer.parseInt(deviceColor, 16)+0xFF000000);
+        mRemoteDevicesTitle.setTextColor(Integer.parseInt(deviceColor, 16) + 0xFF000000);
+        mRemoteDevicesUnderline.setBackgroundColor(Integer.parseInt(deviceColor, 16) + 0xFF000000);
+        mStatusBar.setBackgroundColor(Integer.parseInt(deviceColor, 16) + 0xFF000000);
+    }
+
+    private void setGradientBackgroundAndColor(View v, int color) {
+        int bottomColor = color;
+        int topColor = color;
+        GradientDrawable gradient = new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, new int[] {bottomColor, topColor});
+        gradient.setShape(GradientDrawable.RECTANGLE);
+        gradient.setCornerRadius(40.f);
+        v.setBackgroundDrawable(gradient);
     }
 
 }
