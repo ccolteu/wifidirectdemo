@@ -68,6 +68,7 @@ public class WifiDirectActivity extends AppCompatActivity {
         String deviceId = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
         if (deviceId.length() > 6) {
             deviceColor = deviceId.substring(0, 6);
+            deviceColor = Utils.transformColor(deviceColor);
         } else {
             deviceColor = deviceId;
         }
@@ -139,7 +140,16 @@ public class WifiDirectActivity extends AppCompatActivity {
                 mRefreshButton.clearAnimation();
 
                 peers.clear();
-                peers.addAll(peersList);
+                // only show the connected devices for Receivers
+                if (mService.isConnected() && !mService.initiatedConnection()) {
+                    for (WifiP2pDevice d : mService.getPeers()) {
+                        if (d.status == WifiP2pDevice.CONNECTED) {
+                            peers.add(d);
+                        }
+                    }
+                } else {
+                    peers.addAll(peersList);
+                }
 
                 mWiFiPeerListAdapter.notifyDataSetChanged();
                 mActivity.updateRemoteDevicesTitle();
@@ -341,7 +351,14 @@ public class WifiDirectActivity extends AppCompatActivity {
                 mRemoteDevicesTitle.setText("RECEIVE FROM THIS REMOTE DEVICE");
 
                 peers.clear();
-                peers.addAll(mService.getPeers());
+                //peers.addAll(mService.getPeers());
+                // only show the connected devices
+                for (WifiP2pDevice d:mService.getPeers()) {
+                    if (d.status == WifiP2pDevice.CONNECTED) {
+                        peers.add(d);
+                    }
+                }
+
                 mWiFiPeerListAdapter.notifyDataSetChanged();
             }
 
@@ -413,6 +430,7 @@ public class WifiDirectActivity extends AppCompatActivity {
                 String deviceColor;
                 if (device.deviceName.length() > 6) {
                     deviceColor = device.deviceName.substring(0, 6);
+                    deviceColor = Utils.transformColor(deviceColor);
                 } else {
                     deviceColor = device.deviceName;
                 }

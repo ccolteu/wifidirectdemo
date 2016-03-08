@@ -216,4 +216,13 @@ public class Utils {
         }
     }
 
+    public static String transformColor(String in) {
+        String rStr = in.substring(0, 2);
+        String gStr = in.substring(2, 4);
+        String bStr = in.substring(4, 6);
+        String out = Integer.toString(Integer.parseInt(rStr, 16)%0x88, 16) + Integer.toString(Integer.parseInt(gStr, 16) % 0x88, 16) + Integer.toString(Integer.parseInt(bStr, 16)%0x88, 16);
+        Log.e("toto", "=======   " + in + " -> " + out);
+        return out;
+    }
+
 }

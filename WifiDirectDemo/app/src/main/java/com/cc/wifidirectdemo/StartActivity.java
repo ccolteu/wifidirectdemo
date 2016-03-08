@@ -17,7 +17,14 @@ public class StartActivity extends AppCompatActivity {
         setContentView(R.layout.activity_start);
 
         String deviceId = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
-        String deviceColor = deviceId.substring(0, 6);
+        String deviceColor;
+
+        if (deviceId.length() > 6) {
+            deviceColor = deviceId.substring(0, 6);
+            deviceColor = Utils.transformColor(deviceColor);
+        } else {
+            deviceColor = deviceId;
+        }
 
         ActionBar actionBar = getSupportActionBar();
         actionBar.setBackgroundDrawable(new ColorDrawable(Integer.parseInt(deviceColor, 16)+0xFF000000));
