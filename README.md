@@ -29,12 +29,8 @@ Instructions:
 Note that the photo filename is sent along as well so that it is preserved on the receiving device (see RECEIVER screenshot below). As a matter of fact 1kB worth of metadata (currently just the file name) is pre-pended to the photo byte array stream when sent and parsed on the receiving end.
 
 
-SENDER:
+Sending to 2 devices:
 
-![Alt text](/sender.png?raw=true "initiates connection to send")
+![Alt text](/sender_receivers.png?raw=true "")
 
 
-RECEIVERS:
-
-![Alt text](/receiver1.png?raw=true "accepts connection to receive")
-![Alt text](/receiver2.png?raw=true "accepts connection to receive")
