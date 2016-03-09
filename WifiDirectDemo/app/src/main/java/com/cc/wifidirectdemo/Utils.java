@@ -217,12 +217,12 @@ public class Utils {
     }
 
     public static String transformColor(String in) {
-        String rStr = in.substring(0, 2);
-        String gStr = in.substring(2, 4);
-        String bStr = in.substring(4, 6);
-        String out = Integer.toString(Integer.parseInt(rStr, 16)%0x88, 16) + Integer.toString(Integer.parseInt(gStr, 16) % 0x88, 16) + Integer.toString(Integer.parseInt(bStr, 16)%0x88, 16);
-        Log.e("toto", "=======   " + in + " -> " + out);
-        return out;
+        int seed = Integer.parseInt(in, 16);
+        int delta = (int) Math.floor((Math.abs(Math.sin(seed) * 0xff)) % 0xff) / 2;
+        String rString = in.substring(0, 2);
+        String gString = in.substring(2, 4);
+        String bString = in.substring(4, 6);
+        return Integer.toString(Integer.parseInt(rString, 16)%0x88 + delta, 16) + Integer.toString(Integer.parseInt(gString, 16) % 0x88 + delta, 16) + Integer.toString(Integer.parseInt(bString, 16)%0x88 + delta, 16);
     }
 
 }
